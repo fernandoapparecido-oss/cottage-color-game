@@ -63,6 +63,9 @@
     wsMake:     document.getElementById('ws-make'),
     wsPreview:  document.getElementById('ws-preview'),
     wsMakeStatus:document.getElementById('ws-make-status'),
+    wsColors:   document.getElementById('ws-colors'),
+    wsColorsVal:document.getElementById('ws-colors-val'),
+    wsDetail:   document.getElementById('ws-detail'),
     wsBack:     document.getElementById('ws-back'),
     wsPlayBtn:  document.getElementById('ws-play'),
     wsCancel:   document.getElementById('ws-cancel'),
@@ -1128,7 +1131,7 @@
   // ('cottagecolor:proxy') for testing before it's hardcoded.
   const WEB_SEARCH_PROXY = 'https://cottage-color-proxy.fernando-apparecido.workers.dev';
 
-  const ws = { board: null };
+  const ws = { board: null, img: null, colors: 24, detail: 'mid', title: 'Imagem da web' };
 
   function proxyBase() {
     let b = WEB_SEARCH_PROXY;
@@ -1193,6 +1196,11 @@
 
   function wsPick(hit) {
     ws.board = null;
+    ws.img = null;
+    ws.title = hitTitle(hit);
+    // reset the controls to defaults for each new image
+    ws.colors = 24; el.wsColors.value = 24; el.wsColorsVal.textContent = 24;
+    wsSetDetail('mid');
     el.wsPlayBtn.disabled = true;
     el.wsPreview.innerHTML = '';
     el.wsMake.classList.remove('hidden');
@@ -1201,25 +1209,38 @@
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = function () {
-      el.wsMakeStatus.textContent = 'Gerando quadro… (alguns segundos)';
-      requestAnimationFrame(function () { requestAnimationFrame(function () {
-        try {
-          const board = boardFromImage(img, { colors: 24, detail: 'mid', title: hitTitle(hit) });
-          ws.board = board;
-          el.wsPreview.innerHTML = '';
-          el.wsPreview.appendChild(boardPreviewSvg(board));
-          el.wsPlayBtn.disabled = false;
-          el.wsMakeStatus.textContent = board.regions.length + ' regiões · ' + board.palette.length + ' cores';
-        } catch (e) {
-          el.wsMakeStatus.textContent = 'Não consegui processar essa imagem. Tente outra.';
-        }
-      }); });
-    };
+    img.onload = function () { ws.img = img; wsRegen(); };
     img.onerror = function () {
       el.wsMakeStatus.textContent = 'Não consegui baixar essa imagem. Tente outra.';
     };
     img.src = proxyBase() + '/img?u=' + encodeURIComponent(hit.full);
+  }
+
+  function wsSetDetail(d) {
+    ws.detail = d;
+    Array.prototype.forEach.call(el.wsDetail.children, function (btn) {
+      btn.classList.toggle('on', btn.dataset.detail === d);
+    });
+  }
+
+  // Regenerate the board from the already-downloaded image with the current
+  // Cores/Dificuldade settings (no re-download).
+  function wsRegen() {
+    if (!ws.img) return;
+    el.wsPlayBtn.disabled = true;
+    el.wsMakeStatus.textContent = 'Gerando quadro… (alguns segundos)';
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      try {
+        const board = boardFromImage(ws.img, { colors: ws.colors, detail: ws.detail, title: ws.title });
+        ws.board = board;
+        el.wsPreview.innerHTML = '';
+        el.wsPreview.appendChild(boardPreviewSvg(board));
+        el.wsPlayBtn.disabled = false;
+        el.wsMakeStatus.textContent = board.regions.length + ' regiões · ' + board.palette.length + ' cores';
+      } catch (e) {
+        el.wsMakeStatus.textContent = 'Não consegui processar essa imagem. Tente outra.';
+      }
+    }); });
   }
 
   function hitTitle(hit) {
@@ -1326,6 +1347,15 @@
     el.wsBack.addEventListener('click', function () { el.wsMake.classList.add('hidden'); });
     el.wsPlayBtn.addEventListener('click', wsPlay);
     el.wsCancel.addEventListener('click', closeWebSearch);
+    // Cores / Dificuldade — update live, regenerate on release (fromLineArt is heavy)
+    el.wsColors.addEventListener('input', function () {
+      ws.colors = Number(el.wsColors.value);
+      el.wsColorsVal.textContent = ws.colors;
+    });
+    el.wsColors.addEventListener('change', function () { if (ws.img) wsRegen(); });
+    Array.prototype.forEach.call(el.wsDetail.children, function (btn) {
+      btn.addEventListener('click', function () { wsSetDetail(btn.dataset.detail); if (ws.img) wsRegen(); });
+    });
 
     el.viewport.addEventListener('pointerdown', onPointerDown);
     el.viewport.addEventListener('pointermove', onPointerMove);

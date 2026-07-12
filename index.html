@@ -138,10 +138,25 @@
         <p id="ws-status" class="up-status">Digite um tema e toque em Buscar.</p>
         <div id="ws-results" class="ws-results"></div>
 
-        <!-- Chosen image: preview board + play -->
+        <!-- Chosen image: preview board + controls + play -->
         <div id="ws-make" class="ws-make hidden">
           <div id="ws-preview" class="up-preview"></div>
           <p id="ws-make-status" class="up-status"></p>
+
+          <div class="up-control">
+            <label for="ws-colors">Cores <span id="ws-colors-val">24</span></label>
+            <input id="ws-colors" type="range" min="8" max="40" value="24" />
+          </div>
+
+          <div class="up-control">
+            <label>Dificuldade</label>
+            <div id="ws-detail" class="seg">
+              <button data-detail="low">Fácil</button>
+              <button data-detail="mid" class="on">Médio</button>
+              <button data-detail="high">Difícil</button>
+            </div>
+          </div>
+
           <div class="up-actions">
             <button id="ws-back" class="btn-ghost">← Resultados</button>
             <button id="ws-play" class="btn-primary" disabled>Jogar</button>
