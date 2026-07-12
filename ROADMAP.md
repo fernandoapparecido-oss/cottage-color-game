@@ -71,11 +71,22 @@ Partir de **vetor** dá qualidade muito superior à de rasterizar.
 
 ## Etapa 3 — Busca por tema na web 🟡 (EM ANDAMENTO — frente atual)
 Buscar imagens por assunto e rodá-las pelo pipeline.
-- Fontes com **licença livre** (Openverse / Pixabay) — sem raspar o Google.
-- Precisa de um **backend pequeno** para guardar as chaves de API.
-- Fluxo: digita o tema → escolhe imagem → cai no pipeline → joga.
 
-**Entregável:** buscar um tema, escolher uma imagem e jogá-la.
+- ✅ **Fonte escolhida: Pixabay**, filtrando **`image_type=illustration`** — o
+  estilo (2D chapado) que o motor processa bem, ao contrário de fotos.
+- ✅ **Proxy pronto** (`/worker/cottage-color-proxy.js`, Cloudflare Worker):
+  esconde a chave da API, adiciona **CORS** e repassa a imagem escolhida sem
+  "sujar" o canvas. *(Pixabay não tem CORS e proíbe hotlink → o proxy é
+  necessário.)*
+- ✅ **Tela "Buscar na web"** no app: campo de tema → grade de resultados →
+  escolher → pré-visualização do quadro → **Jogar**. Usa o mesmo motor
+  `fromLineArt` do acervo. **Testado de ponta a ponta** (mock) sem erros.
+- 🔜 **Ativação única do usuário:** criar chave grátis no Pixabay + subir o
+  Worker no Cloudflare (passo-a-passo em `/worker/README.md`) e me passar a URL
+  do Worker, que eu fixo no app (`WEB_SEARCH_PROXY`) e republico.
+
+**Entregável:** buscar um tema, escolher uma imagem e jogá-la. *(Falta só a
+ativação do proxy pelo usuário.)*
 
 ---
 

@@ -55,6 +55,17 @@
     svGen:      document.getElementById('sv-gen'),
     svPlay:     document.getElementById('sv-play'),
     svCancel:   document.getElementById('sv-cancel'),
+    webSearch:  document.getElementById('websearch'),
+    wsQ:        document.getElementById('ws-q'),
+    wsSearchBtn:document.getElementById('ws-search'),
+    wsStatus:   document.getElementById('ws-status'),
+    wsResults:  document.getElementById('ws-results'),
+    wsMake:     document.getElementById('ws-make'),
+    wsPreview:  document.getElementById('ws-preview'),
+    wsMakeStatus:document.getElementById('ws-make-status'),
+    wsBack:     document.getElementById('ws-back'),
+    wsPlayBtn:  document.getElementById('ws-play'),
+    wsCancel:   document.getElementById('ws-cancel'),
     winMenuBtn: document.getElementById('win-menu-btn'),
     winShareBtn:document.getElementById('win-share-btn'),
     restartBtn: document.getElementById('restart-btn'),
@@ -159,6 +170,14 @@
     addSvg.innerHTML = '<span class="add-plus">◆</span><span class="add-label">Enviar SVG (vetor)</span>';
     addSvg.addEventListener('click', openSvgImport);
     el.menuGrid.appendChild(addSvg);
+
+    // "Buscar na web" tile — search Pixabay illustrations by theme (Etapa 3).
+    const addWeb = document.createElement('button');
+    addWeb.className = 'card card-add card-add-web';
+    addWeb.setAttribute('aria-label', 'Buscar imagem na web');
+    addWeb.innerHTML = '<span class="add-plus">🔎</span><span class="add-label">Buscar na web</span>';
+    addWeb.addEventListener('click', openWebSearch);
+    el.menuGrid.appendChild(addWeb);
 
     // Custom boards made from photos/SVG (with delete) — "Minhas imagens".
     const custom = loadCustomBoards();
@@ -1101,6 +1120,144 @@
     startBoard(board);
   }
 
+  // =========================================================================
+  //  Web search: Pixabay illustrations -> playable board (Etapa 3)
+  // =========================================================================
+  // A tiny Cloudflare Worker (see /worker) hides the Pixabay key and adds CORS.
+  // Filled in once the Worker is deployed; can be overridden via localStorage
+  // ('cottagecolor:proxy') for testing before it's hardcoded.
+  const WEB_SEARCH_PROXY = 'https://COLE-AQUI-A-URL-DO-WORKER.workers.dev';
+
+  const ws = { board: null };
+
+  function proxyBase() {
+    let b = WEB_SEARCH_PROXY;
+    try { b = localStorage.getItem('cottagecolor:proxy') || b; } catch (_) {}
+    return b.replace(/\/+$/, '');
+  }
+  function proxyReady() { return proxyBase().indexOf('COLE-AQUI') < 0; }
+
+  function openWebSearch() {
+    ws.board = null;
+    el.wsResults.innerHTML = '';
+    el.wsMake.classList.add('hidden');
+    el.wsPlayBtn.disabled = true;
+    el.wsQ.value = '';
+    el.wsStatus.textContent = proxyReady()
+      ? 'Digite um tema e toque em Buscar.'
+      : 'A busca na web ainda está sendo configurada. Volte em breve! 🙂';
+    el.webSearch.classList.remove('hidden');
+    if (proxyReady()) setTimeout(function () { el.wsQ.focus(); }, 60);
+  }
+  function closeWebSearch() { el.webSearch.classList.add('hidden'); }
+
+  function wsSearch() {
+    const q = el.wsQ.value.trim();
+    if (!proxyReady()) { el.wsStatus.textContent = 'A busca na web ainda não foi configurada.'; return; }
+    if (!q) { el.wsStatus.textContent = 'Digite um tema para buscar.'; return; }
+    el.wsMake.classList.add('hidden');
+    el.wsResults.innerHTML = '';
+    el.wsStatus.textContent = 'Buscando…';
+    fetch(proxyBase() + '/search?q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { el.wsStatus.textContent = 'Erro na busca: ' + data.error; return; }
+        const hits = (data.hits || []).filter(function (h) { return h.thumb && h.full; });
+        if (!hits.length) { el.wsStatus.textContent = 'Nada encontrado para “' + q + '”. Tente outro tema.'; return; }
+        el.wsStatus.textContent = 'Escolha uma imagem:';
+        renderWsResults(hits);
+      })
+      .catch(function () {
+        el.wsStatus.textContent = 'Não consegui conectar à busca. Tente de novo.';
+      });
+  }
+
+  function renderWsResults(hits) {
+    el.wsResults.innerHTML = '';
+    hits.forEach(function (h) {
+      const b = document.createElement('button');
+      b.className = 'ws-thumb';
+      b.setAttribute('aria-label', h.tags || 'imagem');
+      const im = document.createElement('img');
+      im.loading = 'lazy';
+      im.src = h.thumb;
+      b.appendChild(im);
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call(el.wsResults.children, function (c) { c.classList.remove('sel'); });
+        b.classList.add('sel');
+        wsPick(h);
+      });
+      el.wsResults.appendChild(b);
+    });
+  }
+
+  function wsPick(hit) {
+    ws.board = null;
+    el.wsPlayBtn.disabled = true;
+    el.wsPreview.innerHTML = '';
+    el.wsMake.classList.remove('hidden');
+    el.wsMakeStatus.textContent = 'Baixando imagem…';
+    el.wsMake.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function () {
+      el.wsMakeStatus.textContent = 'Gerando quadro… (alguns segundos)';
+      requestAnimationFrame(function () { requestAnimationFrame(function () {
+        try {
+          const board = boardFromImage(img, { colors: 24, detail: 'mid', title: hitTitle(hit) });
+          ws.board = board;
+          el.wsPreview.innerHTML = '';
+          el.wsPreview.appendChild(boardPreviewSvg(board));
+          el.wsPlayBtn.disabled = false;
+          el.wsMakeStatus.textContent = board.regions.length + ' regiões · ' + board.palette.length + ' cores';
+        } catch (e) {
+          el.wsMakeStatus.textContent = 'Não consegui processar essa imagem. Tente outra.';
+        }
+      }); });
+    };
+    img.onerror = function () {
+      el.wsMakeStatus.textContent = 'Não consegui baixar essa imagem. Tente outra.';
+    };
+    img.src = proxyBase() + '/img?u=' + encodeURIComponent(hit.full);
+  }
+
+  function hitTitle(hit) {
+    const t = String(hit.tags || '').split(',')[0].trim();
+    if (!t) return 'Imagem da web';
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  // Draw an <img> into a working canvas and run fromLineArt (same engine as the
+  // acervo/upload). Shared by the web-search flow.
+  function boardFromImage(img, opts) {
+    const p = DETAIL[opts.detail || 'mid'];
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    let gw, gh;
+    if (iw >= ih) { gw = p.gridLong; gh = Math.max(1, Math.round(p.gridLong * ih / iw)); }
+    else { gh = p.gridLong; gw = Math.max(1, Math.round(p.gridLong * iw / ih)); }
+    const canvas = document.createElement('canvas');
+    canvas.width = gw; canvas.height = gh;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, gw, gh);
+    ctx.drawImage(img, 0, 0, gw, gh);
+    const imageData = ctx.getImageData(0, 0, gw, gh);
+    return window.Pipeline.fromLineArt(imageData, {
+      colors: opts.colors || 24, maxRegions: p.maxRegions, title: opts.title || 'Imagem da web'
+    });
+  }
+
+  function wsPlay() {
+    if (!ws.board) return;
+    addCustomBoard(ws.board);
+    const board = ws.board; ws.board = null;
+    closeWebSearch();
+    buildMenu();
+    startBoard(board);
+  }
+
   function playUpload() {
     if (!up.board) return;
     addCustomBoard(up.board);
@@ -1162,6 +1319,13 @@
     el.svGen.addEventListener('click', svGenerate);
     el.svPlay.addEventListener('click', svPlay);
     el.svCancel.addEventListener('click', closeSvgImport);
+
+    // Web search controls
+    el.wsSearchBtn.addEventListener('click', wsSearch);
+    el.wsQ.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); wsSearch(); } });
+    el.wsBack.addEventListener('click', function () { el.wsMake.classList.add('hidden'); });
+    el.wsPlayBtn.addEventListener('click', wsPlay);
+    el.wsCancel.addEventListener('click', closeWebSearch);
 
     el.viewport.addEventListener('pointerdown', onPointerDown);
     el.viewport.addEventListener('pointermove', onPointerMove);

@@ -126,6 +126,32 @@
       </div>
     </section>
 
+    <!-- Web search: Pixabay illustrations -> board -->
+    <section id="websearch" class="hidden">
+      <div class="sheet">
+        <h2>Buscar imagem na web</h2>
+        <p class="sheet-hint">💡 Busca <b>ilustrações</b> (o estilo que fica melhor no jogo). Digite um tema, escolha uma imagem e jogue.</p>
+        <div class="ws-searchbar">
+          <input id="ws-q" type="search" placeholder="Ex.: casa de campo, gato, praia…" autocomplete="off" />
+          <button id="ws-search" class="btn-primary">Buscar</button>
+        </div>
+        <p id="ws-status" class="up-status">Digite um tema e toque em Buscar.</p>
+        <div id="ws-results" class="ws-results"></div>
+
+        <!-- Chosen image: preview board + play -->
+        <div id="ws-make" class="ws-make hidden">
+          <div id="ws-preview" class="up-preview"></div>
+          <p id="ws-make-status" class="up-status"></p>
+          <div class="up-actions">
+            <button id="ws-back" class="btn-ghost">← Resultados</button>
+            <button id="ws-play" class="btn-primary" disabled>Jogar</button>
+          </div>
+        </div>
+
+        <button id="ws-cancel" class="btn-text">Cancelar</button>
+      </div>
+    </section>
+
   </div>
 
   <script src="src/boards.js"></script>
