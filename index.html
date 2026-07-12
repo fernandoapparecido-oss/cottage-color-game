@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f3ec" />
+  <title>Cottage Color</title>
+  <!-- PWA: installable + offline (hosted build) -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Cottage Color" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- Menu / level select -->
+    <section id="menu">
+      <div class="brand">
+        <h1>🏡 Cottage Color</h1>
+        <p>Relaxe pintando por número</p>
+      </div>
+      <div id="menu-grid"></div>
+    </section>
+
+    <!-- Game -->
+    <section id="game" class="hidden">
+      <header class="topbar">
+        <button id="back-btn" class="icon-btn" aria-label="Voltar">‹</button>
+        <div class="topbar-mid">
+          <p id="level-title">—</p>
+          <div class="progress-track"><div id="progress-bar"></div></div>
+        </div>
+        <span id="progress-pct">0%</span>
+        <button id="seek-btn" class="icon-btn" aria-label="Achar próxima região">🎯</button>
+        <button id="hint-btn" class="icon-btn" aria-label="Dica">💡</button>
+        <button id="restart-btn" class="icon-btn" aria-label="Recomeçar">↺</button>
+      </header>
+
+      <div id="viewport">
+        <div id="stage"></div>
+      </div>
+
+      <footer id="palette"></footer>
+
+      <!-- Win overlay: art stays visible (UI hidden), congrats sits at the bottom -->
+      <div id="win" class="hidden">
+        <div class="win-card">
+          <h2>🎉 Concluído!</h2>
+          <p>Que obra linda!</p>
+          <div class="win-actions">
+            <button id="win-share-btn" class="btn-ghost">Compartilhar</button>
+            <button id="win-menu-btn" class="btn-primary">Escolher outra</button>
+          </div>
+        </div>
+      </div>
+      <div id="confetti"></div>
+    </section>
+
+    <!-- Share: composed card of the finished artwork -->
+    <section id="share" class="hidden">
+      <div class="share-sheet">
+        <h2>Compartilhar</h2>
+        <div id="share-preview" class="share-preview"><div id="share-spin">Gerando…</div></div>
+        <label class="share-toggle"><input type="checkbox" id="share-ba" /> Mostrar antes e depois</label>
+        <div class="share-actions">
+          <button id="share-do" class="btn-primary">Compartilhar</button>
+          <button id="share-dl" class="btn-ghost">Baixar</button>
+        </div>
+        <p class="share-hint">💡 Dica: toque e segure a imagem para salvar na galeria.</p>
+        <button id="share-close" class="btn-text">Fechar</button>
+      </div>
+    </section>
+
+    <!-- Upload: photo -> board -->
+    <section id="upload" class="hidden">
+      <div class="sheet">
+        <h2>Nova imagem</h2>
+        <p class="sheet-hint">💡 Funciona melhor com <b>ilustrações 2D de cores chapadas</b> (ex.: desenhos gerados por IA, cartoon, line-art). Fotos reais muito detalhadas têm resultado imprevisível.</p>
+        <div id="up-preview" class="up-preview"></div>
+        <p id="up-status" class="up-status">Escolha uma foto para começar.</p>
+
+        <div class="up-control">
+          <label for="up-colors">Cores <span id="up-colors-val">24</span></label>
+          <input id="up-colors" type="range" min="8" max="40" value="24" />
+        </div>
+
+        <div class="up-control">
+          <label>Detalhe</label>
+          <div id="up-detail" class="seg">
+            <button data-detail="low">Menos</button>
+            <button data-detail="mid" class="on">Médio</button>
+            <button data-detail="high">Mais</button>
+          </div>
+        </div>
+
+        <div class="up-actions">
+          <button id="up-pick" class="btn-ghost">Trocar foto</button>
+          <button id="up-play" class="btn-primary" disabled>Jogar</button>
+        </div>
+        <button id="up-cancel" class="btn-text">Cancelar</button>
+
+        <input id="up-file" type="file" accept="image/*" hidden />
+      </div>
+    </section>
+
+    <!-- SVG import: vector -> board -->
+    <section id="svgimport" class="hidden">
+      <div class="sheet">
+        <h2>Enviar SVG (vetor)</h2>
+        <p class="sheet-hint">💡 Melhor qualidade. Cole ou envie um <b>.svg</b> (ex.: ilustração vetorial gerada por IA). As formas viram regiões e os <b>degradês são preservados</b> — aparecem ao pintar.</p>
+        <div id="sv-preview" class="up-preview"></div>
+        <p id="sv-status" class="up-status">Cole o código do SVG ou escolha um arquivo.</p>
+        <textarea id="sv-text" class="sv-text" placeholder="Cole aqui o conteúdo do arquivo .svg (começa com <svg ...>)"></textarea>
+        <div class="up-actions">
+          <button id="sv-file-btn" class="btn-ghost">Arquivo…</button>
+          <button id="sv-gen" class="btn-ghost">Gerar</button>
+          <button id="sv-play" class="btn-primary" disabled>Jogar</button>
+        </div>
+        <button id="sv-cancel" class="btn-text">Cancelar</button>
+        <input id="sv-file" type="file" accept=".svg,.txt,image/svg+xml,text/plain" hidden />
+      </div>
+    </section>
+
+  </div>
+
+  <script src="src/boards.js"></script>
+  <script src="src/pipeline.js"></script>
+  <script src="src/curated.js"></script>
+  <script src="src/levels.js"></script>
+  <script src="src/game.js"></script>
+  <!-- Register the service worker (hosted PWA only; harmless/skipped elsewhere).
+       This <script> is stripped from the single-file Artifact bundle by build.js. -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        try { navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {}
+      });
+    }
+  </script>
+</body>
+</html>
