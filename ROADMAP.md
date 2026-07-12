@@ -8,9 +8,10 @@ Legenda: ✅ feito · 🟡 em andamento · 🔜 próxima · ⬜ planejada
 > **Onde estamos:** Etapas 0, 1, 2, 4 e **5A concluídas** + o **motor vetorial
 > (SVG)** de brinde (Etapa 2B). O jogo está **publicado e compartilhável** em
 > https://fernandoapparecido-oss.github.io/cottage-color-game/ (repositório
-> dedicado, PWA instalável, offline). Agora estamos na **Etapa 7 (polimento)**.
+> dedicado, PWA instalável, offline). Agora começando a **Etapa 3 (busca de
+> imagens por tema)**; o polimento (Etapa 7) segue em paralelo.
 >
-> **Plano atual: polir a versão web compartilhável.** O app **nativo**
+> **Plano atual: Etapa 3 — buscar imagens por tema na web.** O app **nativo**
 > (Etapa 5B, com AdMob) fica como **futuro**, para quando formos monetizar.
 > Faltam ainda: Etapa 3 (busca na web), Etapa 6 (anúncios).
 
@@ -68,7 +69,7 @@ Partir de **vetor** dá qualidade muito superior à de rasterizar.
 
 ---
 
-## Etapa 3 — Busca por tema na web 🔜 (próxima grande frente)
+## Etapa 3 — Busca por tema na web 🟡 (EM ANDAMENTO — frente atual)
 Buscar imagens por assunto e rodá-las pelo pipeline.
 - Fontes com **licença livre** (Openverse / Pixabay) — sem raspar o Google.
 - Precisa de um **backend pequeno** para guardar as chaves de API.
@@ -136,22 +137,24 @@ Detalhes de experiência que fazem o jogo parecer "de verdade".
 - ✅ **Recomeçar** um quadro (↺); **instruções** de uso nos dois imports.
 - ✅ **Compartilhar a obra** — tela que monta um **cartão** (obra + moldura +
   selo "🏡 Cottage Color" + título), com **antes/depois** opcional, **baixar**
-  e "segurar para salvar". Funciona mesmo onde as APIs nativas são bloqueadas.
+  e "segurar para salvar". **Funciona perfeitamente** na versão hospedada.
+- ✅ **Recomeçar (↺)** funcionando na versão hospedada.
 - ⬜ Som/vibração ao pintar; micro-animação ao concluir uma cor.
-- ⬜ Arrastar o dedo para pintar; **desfazer**; avanço de cor mais visível.
+- ⬜ **Desfazer**; avanço de cor mais visível.
 - ⬜ Tutorial de primeira vez; página nas lojas, métricas, soft launch.
+- 🚫 **Arrastar o dedo para pintar** — *descartado* (não combina com este
+  estilo de jogo de precisão).
 
-### 🐞 Bugs conhecidos (corrigir)
-- **Botão Recomeçar (↺) não faz nada** no navegador/artifact — provavelmente
-  o `confirm()` é bloqueado na sandbox do iframe. Trocar por uma confirmação
-  própria dentro do app (mesmo motivo pelo qual o "compartilhar" antigo não
-  funcionava; a nova tela de compartilhar já não depende de APIs bloqueadas).
+### 🐞 Bugs conhecidos
+- *(nenhum em aberto)* — o **Recomeçar (↺)** voltou a funcionar na versão
+  hospedada (o problema era o `confirm()` bloqueado na sandbox do artifact,
+  que não existe no site publicado).
 
 ### Próximo passo
-Etapa 5A **fechada** (jogo publicado e compartilhável). Agora, **polimento
-(Etapa 7)**: prioridades sugeridas — **corrigir o bug do Recomeçar**, **arrastar
-o dedo para pintar**, **desfazer**, e **som/vibração** ao pintar. Em paralelo,
-a próxima grande frente é a **Etapa 3 (busca de imagens por tema)**.
+Etapa 5A **fechada** e polimento em bom estado (Recomeçar + Compartilhar OK).
+Foco agora na **Etapa 3 (busca de imagens por tema)** — ver notas de
+arquitetura na seção da Etapa 3 acima (fonte de imagens, CORS/backend,
+qualidade). Polimento restante (desfazer, som/vibração) fica em paralelo.
 
 ---
 
