@@ -1126,7 +1126,7 @@
   // A tiny Cloudflare Worker (see /worker) hides the Pixabay key and adds CORS.
   // Filled in once the Worker is deployed; can be overridden via localStorage
   // ('cottagecolor:proxy') for testing before it's hardcoded.
-  const WEB_SEARCH_PROXY = 'https://COLE-AQUI-A-URL-DO-WORKER.workers.dev';
+  const WEB_SEARCH_PROXY = 'https://cottage-color-proxy.fernando-apparecido.workers.dev';
 
   const ws = { board: null };
 
