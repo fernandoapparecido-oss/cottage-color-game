@@ -5,11 +5,12 @@ Mapa do caminho, do protótipo até o app publicado. Cada etapa tem um
 
 Legenda: ✅ feito · 🟡 em andamento · 🔜 próxima · ⬜ planejada
 
-> **Onde estamos:** Etapas 0, 1, 2 e 4 concluídas + o **motor vetorial (SVG)**
-> de brinde (Etapa 2B). Estamos na **Etapa 7 (polimento)** — o **compartilhar**
-> já foi feito.
+> **Onde estamos:** Etapas 0, 1, 2, 4 e **5A concluídas** + o **motor vetorial
+> (SVG)** de brinde (Etapa 2B). O jogo está **publicado e compartilhável** em
+> https://fernandoapparecido-oss.github.io/cottage-color-game/ (repositório
+> dedicado, PWA instalável, offline). Agora estamos na **Etapa 7 (polimento)**.
 >
-> **Plano atual: web compartilhável (PWA)** — Etapa 5A. O app **nativo**
+> **Plano atual: polir a versão web compartilhável.** O app **nativo**
 > (Etapa 5B, com AdMob) fica como **futuro**, para quando formos monetizar.
 > Faltam ainda: Etapa 3 (busca na web), Etapa 6 (anúncios).
 
@@ -88,20 +89,21 @@ Buscar imagens por assunto e rodá-las pelo pipeline.
 
 ## Etapa 5 — Plataforma: Web (agora) → Nativo (futuro)
 
-### Etapa 5A — Web compartilhável / PWA 🟡 (plano atual)
+### Etapa 5A — Web compartilhável / PWA ✅ (concluída)
 Deixar o jogo **rodando e compartilhável na web** — sem loja, sem instalar.
 - ✅ **PWA:** `manifest.webmanifest` + **ícone** (192/512/maskable) + metas
   Apple/Android → **instalável** ("Adicionar à tela inicial").
 - ✅ **Service worker** (`sw.js`): carrega **offline** e abre rápido
   (testado: registra, controla e funciona sem rede).
 - ✅ Compartilhar a obra (cartão + baixar/segurar para salvar).
-- 🔜 **Hospedar** para ter um **link estável**: workflow do **GitHub Pages**
-  já criado (`.github/workflows/pages.yml`, publica a pasta `game/`). Falta a
-  ativação única no repositório: *Settings → Pages → Source: GitHub Actions*.
+- ✅ **Hospedado** com **link estável**, em **repositório dedicado**
+  (`cottage-color-game`), publicado via **GitHub Pages** (workflow
+  `.github/workflows/pages.yml` republica a cada envio ao `main`):
+  **https://fernandoapparecido-oss.github.io/cottage-color-game/**
 
-**Entregável:** um link que abre o jogo no celular, instala na tela inicial,
-joga offline e compartilha a pintura. *(a versão Artifact segue como
-"jogar na hora"; o PWA completo vem da versão hospedada.)*
+**Entregável (feito):** um link que abre o jogo no celular, instala na tela
+inicial, joga offline e compartilha a pintura — basta enviar a URL. *(a versão
+Artifact segue como "jogar na hora" durante o desenvolvimento.)*
 
 ### Etapa 5B — App nativo (Capacitor) ⬜ (futuro — quando monetizar)
 **Decisão Web × App (avaliada):** para um jogo casual que vive de **anúncio**,
@@ -146,9 +148,10 @@ Detalhes de experiência que fazem o jogo parecer "de verdade".
   funcionava; a nova tela de compartilhar já não depende de APIs bloqueadas).
 
 ### Próximo passo
-Fechar a **Etapa 5A (web compartilhável / PWA)**: manifest + ícone + service
-worker + link estável, para o jogo ser instalável e abrir offline. Em paralelo,
-seguir o polimento (arrastar para pintar, desfazer, som) conforme a prioridade.
+Etapa 5A **fechada** (jogo publicado e compartilhável). Agora, **polimento
+(Etapa 7)**: prioridades sugeridas — **corrigir o bug do Recomeçar**, **arrastar
+o dedo para pintar**, **desfazer**, e **som/vibração** ao pintar. Em paralelo,
+a próxima grande frente é a **Etapa 3 (busca de imagens por tema)**.
 
 ---
 
