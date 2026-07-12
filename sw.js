@@ -1,6 +1,8 @@
-/* Cottage Color — service worker (offline + instant load).
-   Bump CACHE when assets change so clients pick up the new version. */
-const CACHE = 'cottage-color-v1';
+/* Cottage Color — service worker (offline + fresh updates).
+   Strategy: NETWORK-FIRST for same-origin GETs, falling back to cache when
+   offline. This guarantees players see the latest version whenever they're
+   online, while still loading offline. Bump CACHE to force a clean refresh. */
+const CACHE = 'cottage-color-v3';
 const SHELL = [
   './',
   './index.html',
@@ -35,17 +37,22 @@ self.addEventListener('activate', function (e) {
   );
 });
 
-// Cache-first for same-origin GET; fall back to network and cache the result.
+// Network-first: try the network (and refresh the cache); if it fails (offline),
+// serve from cache; final fallback is the cached index.html.
 self.addEventListener('fetch', function (e) {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
-    caches.match(req).then(function (hit) {
-      if (hit) return hit;
-      return fetch(req).then(function (res) {
-        if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then(function (c) { c.put(req, copy); }); }
-        return res;
-      }).catch(function () { return caches.match('./index.html'); });
+    fetch(req).then(function (res) {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then(function (c) { c.put(req, copy); });
+      }
+      return res;
+    }).catch(function () {
+      return caches.match(req).then(function (hit) {
+        return hit || caches.match('./index.html');
+      });
     })
   );
 });
