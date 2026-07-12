@@ -85,6 +85,11 @@
         <p id="up-status" class="up-status">Escolha uma foto para começar.</p>
 
         <div class="up-control">
+          <label for="up-title">Nome</label>
+          <input id="up-title" class="name-input" type="text" maxlength="40" placeholder="Minha imagem" value="Minha imagem" />
+        </div>
+
+        <div class="up-control">
           <label for="up-colors">Cores <span id="up-colors-val">24</span></label>
           <input id="up-colors" type="range" min="8" max="40" value="24" />
         </div>
@@ -115,6 +120,10 @@
         <p class="sheet-hint">💡 Melhor qualidade. Cole ou envie um <b>.svg</b> (ex.: ilustração vetorial gerada por IA). As formas viram regiões e os <b>degradês são preservados</b> — aparecem ao pintar.</p>
         <div id="sv-preview" class="up-preview"></div>
         <p id="sv-status" class="up-status">Cole o código do SVG ou escolha um arquivo.</p>
+        <div class="up-control">
+          <label for="sv-title">Nome</label>
+          <input id="sv-title" class="name-input" type="text" maxlength="40" placeholder="Meu vetor" value="Meu vetor" />
+        </div>
         <textarea id="sv-text" class="sv-text" placeholder="Cole aqui o conteúdo do arquivo .svg (começa com <svg ...>)"></textarea>
         <div class="up-actions">
           <button id="sv-file-btn" class="btn-ghost">Arquivo…</button>

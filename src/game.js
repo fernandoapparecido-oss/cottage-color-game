@@ -39,6 +39,7 @@
     upload:     document.getElementById('upload'),
     upPreview:  document.getElementById('up-preview'),
     upFile:     document.getElementById('up-file'),
+    upTitle:    document.getElementById('up-title'),
     upColors:   document.getElementById('up-colors'),
     upColorsVal:document.getElementById('up-colors-val'),
     upDetail:   document.getElementById('up-detail'),
@@ -49,6 +50,7 @@
     svImport:   document.getElementById('svgimport'),
     svPreview:  document.getElementById('sv-preview'),
     svStatus:   document.getElementById('sv-status'),
+    svTitle:    document.getElementById('sv-title'),
     svText:     document.getElementById('sv-text'),
     svFileBtn:  document.getElementById('sv-file-btn'),
     svFile:     document.getElementById('sv-file'),
@@ -151,6 +153,13 @@
     saveCustomBoards(loadCustomBoards().filter(function (b) { return b.id !== id; }));
     try { localStorage.removeItem(saveKey(id)); } catch (_) {}
   }
+  function renameCustomBoard(id, title) {
+    const list = loadCustomBoards();
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === id) { list[i].title = title; break; }
+    }
+    saveCustomBoards(list);
+  }
 
   // =========================================================================
   //  Menu
@@ -248,6 +257,18 @@
       '<span class="card-progress">' + (pct === 100 ? '✓ Concluído' : pct + '%') + '</span>';
     card.appendChild(meta);
     if (deletable) {
+      const ren = document.createElement('span');
+      ren.className = 'card-rename';
+      ren.textContent = '✎';
+      ren.setAttribute('role', 'button');
+      ren.setAttribute('aria-label', 'Renomear');
+      ren.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const nn = prompt('Novo nome para o quadro:', board.title);
+        if (nn != null) { const t = nn.trim(); if (t) { renameCustomBoard(board.id, t); buildMenu(); } }
+      });
+      card.appendChild(ren);
+
       const del = document.createElement('span');
       del.className = 'card-del';
       del.textContent = '✕';
@@ -968,6 +989,7 @@
 
   function openUpload() {
     up.board = null;
+    el.upTitle.value = 'Minha imagem';
     el.upColors.value = up.colors;
     el.upColorsVal.textContent = up.colors;
     setDetail(up.detail);
@@ -1077,6 +1099,7 @@
 
   function openSvgImport() {
     sv.board = null;
+    el.svTitle.value = 'Meu vetor';
     el.svPlay.disabled = true;
     el.svPreview.innerHTML = '';
     el.svText.value = '';
@@ -1116,6 +1139,7 @@
 
   function svPlay() {
     if (!sv.board) return;
+    sv.board.title = customTitle(el.svTitle, 'Meu vetor');
     addCustomBoard(sv.board);
     const board = sv.board; sv.board = null;
     closeSvgImport();
@@ -1281,12 +1305,19 @@
 
   function playUpload() {
     if (!up.board) return;
+    up.board.title = customTitle(el.upTitle, 'Minha imagem');
     addCustomBoard(up.board);
     const board = up.board;
     up.img = null; up.board = null;
     closeUpload();
     buildMenu();
     startBoard(board);
+  }
+
+  // Read a name field, trimmed, falling back to a default when empty.
+  function customTitle(input, fallback) {
+    const t = (input && input.value ? input.value : '').trim();
+    return t || fallback;
   }
 
   // =========================================================================
