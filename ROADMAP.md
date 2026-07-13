@@ -149,6 +149,12 @@ Detalhes de experiência que fazem o jogo parecer "de verdade".
 - ✅ **Compartilhar a obra** — tela que monta um **cartão** (obra + moldura +
   selo "🏡 Cottage Color" + título), com **antes/depois** opcional, **baixar**
   e "segurar para salvar". **Funciona perfeitamente** na versão hospedada.
+- ✅ **Enviar quadro para um amigo jogar** (social): 📤 nos cards de "Minhas
+  imagens" → **link** (amigo abre e joga; usa KV do Worker) ou **arquivo**
+  (`.ccb.json`, sem servidor). 📂 "Abrir quadro recebido" importa o arquivo;
+  link `#play=<id>` abre o quadro direto. *(link precisa ativar o KV — ver
+  `worker/README.md`; sem KV, cai no arquivo.)*
+- ✅ **Nomear/renomear** quadros importados (campo Nome + botão ✎ nos cards).
 - ✅ **Recomeçar (↺)** funcionando na versão hospedada.
 - ⬜ Som/vibração ao pintar; micro-animação ao concluir uma cor.
 - ⬜ **Desfazer**; avanço de cor mais visível.
