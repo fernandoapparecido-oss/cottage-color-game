@@ -31,6 +31,8 @@
     levelTitle: document.getElementById('level-title'),
     menu:       document.getElementById('menu'),
     menuGrid:   document.getElementById('menu-grid'),
+    menuSort:   document.getElementById('menu-sort'),
+    menuTodo:   document.getElementById('menu-todo'),
     game:       document.getElementById('game'),
     win:        document.getElementById('win'),
     hintBtn:    document.getElementById('hint-btn'),
@@ -147,6 +149,7 @@
     catch (_) { return false; }   // quota exceeded
   }
   function addCustomBoard(board) {
+    if (!board.createdAt) board.createdAt = Date.now();   // import/creation date
     const list = loadCustomBoards();
     list.unshift(board);
     while (list.length > 6) list.pop();            // keep storage bounded
@@ -170,92 +173,135 @@
   // =========================================================================
   //  Menu
   // =========================================================================
-  function buildMenu() {
-    el.menuGrid.innerHTML = '';
+  // ---- View state: sort (categorias/nome/recentes), filter, collapsed cats ---
+  const MENU_KEY = STORAGE_PREFIX + 'menu';
+  const menuState = loadMenuState();
 
-    // "Upload" tile always first.
-    const add = document.createElement('button');
-    add.className = 'card card-add';
-    add.setAttribute('aria-label', 'Enviar imagem');
-    add.innerHTML = '<span class="add-plus">+</span><span class="add-label">Enviar imagem</span>';
-    add.addEventListener('click', openUpload);
-    el.menuGrid.appendChild(add);
-
-    // "Enviar SVG" tile — vector import (highest quality).
-    const addSvg = document.createElement('button');
-    addSvg.className = 'card card-add card-add-svg';
-    addSvg.setAttribute('aria-label', 'Enviar SVG');
-    addSvg.innerHTML = '<span class="add-plus">◆</span><span class="add-label">Enviar SVG (vetor)</span>';
-    addSvg.addEventListener('click', openSvgImport);
-    el.menuGrid.appendChild(addSvg);
-
-    // "Buscar na web" tile — search Pixabay illustrations by theme (Etapa 3).
-    const addWeb = document.createElement('button');
-    addWeb.className = 'card card-add card-add-web';
-    addWeb.setAttribute('aria-label', 'Buscar imagem na web');
-    addWeb.innerHTML = '<span class="add-plus">🔎</span><span class="add-label">Buscar na web</span>';
-    addWeb.addEventListener('click', openWebSearch);
-    el.menuGrid.appendChild(addWeb);
-
-    // "Abrir quadro recebido" tile — import a board a friend sent as a file.
-    const addOpen = document.createElement('button');
-    addOpen.className = 'card card-add card-add-open';
-    addOpen.setAttribute('aria-label', 'Abrir quadro recebido');
-    addOpen.innerHTML = '<span class="add-plus">📂</span><span class="add-label">Abrir quadro recebido</span>';
-    addOpen.addEventListener('click', function () { el.boardFile.value = ''; el.boardFile.click(); });
-    el.menuGrid.appendChild(addOpen);
-
-    // Custom boards made from photos/SVG (with delete) — "Minhas imagens".
-    const custom = loadCustomBoards();
-    if (custom.length) {
-      addSection('Minhas imagens');
-      custom.forEach(function (board) {
-        const card = makeCard(board, levelCompletion(board.id, board.regions.length), true);
-        card.addEventListener('click', function () { startBoard(board); });
-        el.menuGrid.appendChild(card);
-      });
-    }
-
-    // Curated library (acervo), grouped into categories.
-    const byCat = {};
-    (window.CURATED || []).forEach(function (board) {
-      const cat = CATEGORY[board.id] || 'Outros';
-      (byCat[cat] || (byCat[cat] = [])).push(board);
-    });
-    CATEGORY_ORDER.forEach(function (cat) {
-      const list = byCat[cat]; if (!list || !list.length) return;
-      addSection(cat);
-      list.forEach(function (board) {
-        const card = makeCard(board, levelCompletion(board.id, board.regions.length), false);
-        card.addEventListener('click', function () { startBoard(board); });
-        el.menuGrid.appendChild(card);
-      });
-    });
-
-    // Built-in shape levels — "Clássicos".
-    if (window.LEVELS && window.LEVELS.length) {
-      addSection('Clássicos');
-      window.LEVELS.forEach(function (lvl) {
-        const board = getBoard(lvl);
-        const card = makeCard(board, levelCompletion(board.id, board.regions.length), false);
-        card.addEventListener('click', function () { startLevel(lvl); });
-        el.menuGrid.appendChild(card);
-      });
-    }
+  function loadMenuState() {
+    try {
+      const s = JSON.parse(localStorage.getItem(MENU_KEY)) || {};
+      return { sort: s.sort || 'cat', onlyTodo: !!s.onlyTodo, collapsed: new Set(s.collapsed || []) };
+    } catch (_) { return { sort: 'cat', onlyTodo: false, collapsed: new Set() }; }
+  }
+  function saveMenuState() {
+    try {
+      localStorage.setItem(MENU_KEY, JSON.stringify({
+        sort: menuState.sort, onlyTodo: menuState.onlyTodo, collapsed: Array.from(menuState.collapsed)
+      }));
+    } catch (_) {}
   }
 
-  // Acervo categories (by board id) and the order they appear in the menu.
+  // Acervo categories (by board id) and the order categories appear in.
   const CATEGORY = {
     'cur-land': 'Paisagem', 'cur-lake': 'Paisagem', 'cur-lake2': 'Paisagem',
     'cur-kit': 'Casa', 'cur-cot': 'Casa', 'cur-lion': 'Animais'
   };
-  const CATEGORY_ORDER = ['Paisagem', 'Casa', 'Animais', 'Outros'];
+  const CATEGORY_ORDER = ['Minhas imagens', 'Paisagem', 'Casa', 'Animais', 'Outros', 'Clássicos'];
 
-  function addSection(title) {
-    const h = document.createElement('div');
-    h.className = 'menu-section';
-    h.textContent = title;
+  // Every playable board with metadata (category, custom?, date, how to start).
+  function allBoards() {
+    const out = [];
+    loadCustomBoards().forEach(function (b) {
+      out.push({ board: b, cat: 'Minhas imagens', custom: true, date: b.createdAt || 0, start: function () { startBoard(b); } });
+    });
+    (window.CURATED || []).forEach(function (b) {
+      out.push({ board: b, cat: CATEGORY[b.id] || 'Outros', custom: false, date: 0, start: function () { startBoard(b); } });
+    });
+    (window.LEVELS || []).forEach(function (lvl) {
+      const b = getBoard(lvl);
+      out.push({ board: b, cat: 'Clássicos', custom: false, date: 0, start: function () { startLevel(lvl); } });
+    });
+    return out;
+  }
+
+  function pctOf(board) { return levelCompletion(board.id, board.regions.length); }
+
+  function buildMenu() {
+    el.menuGrid.innerHTML = '';
+    renderActionTiles();
+    syncMenuTools();
+
+    let items = allBoards();
+    if (menuState.onlyTodo) items = items.filter(function (it) { return pctOf(it.board) < 100; });
+
+    if (menuState.sort === 'name') {
+      items.sort(function (a, b) { return a.board.title.localeCompare(b.board.title, 'pt'); });
+      items.forEach(renderItemCard);
+    } else if (menuState.sort === 'date') {
+      // custom boards newest-first (by import date), then the rest A–Z
+      items.sort(function (a, b) {
+        if (a.custom && b.custom) return b.date - a.date;
+        if (a.custom) return -1;
+        if (b.custom) return 1;
+        return a.board.title.localeCompare(b.board.title, 'pt');
+      });
+      items.forEach(renderItemCard);
+    } else { // 'cat' — grouped into collapsible sections
+      const byCat = {};
+      items.forEach(function (it) { (byCat[it.cat] || (byCat[it.cat] = [])).push(it); });
+      CATEGORY_ORDER.forEach(function (cat) {
+        const list = byCat[cat]; if (!list || !list.length) return;
+        addCollapsibleSection(cat, list.length);
+        if (!menuState.collapsed.has(cat)) list.forEach(renderItemCard);
+      });
+    }
+
+    if (!items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'menu-empty';
+      empty.textContent = menuState.onlyTodo ? 'Nada por fazer — tudo concluído! 🎉' : 'Nenhum quadro ainda.';
+      el.menuGrid.appendChild(empty);
+    }
+  }
+
+  function renderItemCard(it) {
+    const card = makeCard(it.board, pctOf(it.board), it.custom);
+    card.addEventListener('click', it.start);
+    el.menuGrid.appendChild(card);
+  }
+
+  // The create/import action tiles, always shown at the top.
+  function renderActionTiles() {
+    const tiles = [
+      { cls: 'card-add', icon: '+', label: 'Enviar imagem', on: openUpload },
+      { cls: 'card-add card-add-svg', icon: '◆', label: 'Enviar SVG (vetor)', on: openSvgImport },
+      { cls: 'card-add card-add-web', icon: '🔎', label: 'Buscar na web', on: openWebSearch },
+      { cls: 'card-add card-add-open', icon: '📂', label: 'Abrir quadro recebido', on: function () { el.boardFile.value = ''; el.boardFile.click(); } }
+    ];
+    tiles.forEach(function (t) {
+      const b = document.createElement('button');
+      b.className = 'card ' + t.cls;
+      b.setAttribute('aria-label', t.label);
+      b.innerHTML = '<span class="add-plus">' + t.icon + '</span><span class="add-label">' + t.label + '</span>';
+      b.addEventListener('click', t.on);
+      el.menuGrid.appendChild(b);
+    });
+  }
+
+  // A category header that toggles its section open/closed (persisted).
+  function addCollapsibleSection(title, count) {
+    const collapsed = menuState.collapsed.has(title);
+    const h = document.createElement('button');
+    h.className = 'menu-section' + (collapsed ? ' collapsed' : '');
+    h.innerHTML = '<span class="sec-chev">▾</span><span class="sec-name">' + title + '</span>' +
+                  '<span class="sec-count">' + count + '</span>';
+    h.addEventListener('click', function () {
+      if (menuState.collapsed.has(title)) menuState.collapsed.delete(title);
+      else menuState.collapsed.add(title);
+      saveMenuState();
+      buildMenu();
+    });
     el.menuGrid.appendChild(h);
+  }
+
+  // Reflect current sort/filter in the toolbar controls.
+  function syncMenuTools() {
+    if (el.menuSort) {
+      Array.prototype.forEach.call(el.menuSort.children, function (b) {
+        b.classList.toggle('on', b.dataset.sort === menuState.sort);
+      });
+    }
+    if (el.menuTodo) el.menuTodo.checked = menuState.onlyTodo;
   }
 
   function makeCard(board, pct, deletable) {
@@ -1479,6 +1525,12 @@
   // =========================================================================
   function init() {
     buildMenu();
+
+    // Home toolbar: view mode + "only not done" filter
+    Array.prototype.forEach.call(el.menuSort.children, function (btn) {
+      btn.addEventListener('click', function () { menuState.sort = btn.dataset.sort; saveMenuState(); buildMenu(); });
+    });
+    el.menuTodo.addEventListener('change', function () { menuState.onlyTodo = el.menuTodo.checked; saveMenuState(); buildMenu(); });
 
     el.hintBtn.addEventListener('click', useHint);
     el.seekBtn.addEventListener('click', seekNext);

@@ -518,12 +518,60 @@ body {
 /* Acervo category headers */
 .menu-section {
   grid-column: 1 / -1;
-  margin: 10px 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 6px 2px;
+  border: none;
+  background: none;
   font-size: 15px;
   font-weight: 700;
   color: var(--ink, #4a4038);
+  cursor: pointer;
+  text-align: left;
 }
 .menu-section:first-child { margin-top: 0; }
+.menu-section .sec-chev { font-size: 11px; color: var(--muted); transition: transform .15s; }
+.menu-section.collapsed .sec-chev { transform: rotate(-90deg); }
+.menu-section .sec-name { flex: 0 1 auto; }
+.menu-section .sec-count {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  background: #efe8dd; border-radius: 99px; padding: 1px 9px;
+}
+.menu-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 8px;
+  font-size: 14px;
+}
+
+/* Home toolbar: view mode + filter */
+#menu-tools {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+  padding: 4px 0 12px;
+  background: var(--bg);
+}
+.seg-sm button { padding: 7px 12px; font-size: 12.5px; }
+.menu-todo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.menu-todo input { accent-color: var(--accent); width: 16px; height: 16px; }
 
 /* Share overlay */
 #share {
