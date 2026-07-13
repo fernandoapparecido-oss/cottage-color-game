@@ -176,6 +176,22 @@
       </div>
     </section>
 
+    <!-- Send a playable board to a friend (link or file) -->
+    <section id="boardshare" class="hidden">
+      <div class="share-sheet">
+        <h2>Enviar para um amigo jogar</h2>
+        <p class="share-hint">Seu amigo recebe o <b>quadro para pintar do zero</b> (não a foto pronta).</p>
+        <div class="share-actions">
+          <button id="bs-link" class="btn-primary">Enviar link</button>
+          <button id="bs-file" class="btn-ghost">Salvar arquivo</button>
+        </div>
+        <p id="bs-status" class="up-status">Link: abre pronto no celular do amigo. Arquivo: o amigo importa no app.</p>
+        <button id="bs-close" class="btn-text">Fechar</button>
+      </div>
+    </section>
+
+    <input id="board-file" type="file" accept=".json,.ccb,application/json" hidden />
+
   </div>
 
   <script src="src/boards.js"></script>

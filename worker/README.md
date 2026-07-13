@@ -56,3 +56,37 @@ salvo.
 - A chave do Pixabay fica **só no Worker** (Secret), nunca no site.
 - O `/img` só aceita imagens hospedadas no `pixabay.com` — não é um proxy
   aberto.
+
+---
+
+## Compartilhar quadro por LINK (opcional) — armazenamento KV
+
+Para o "enviar quadro para um amigo jogar" funcionar por **link** (o amigo toca
+e o quadro abre pronto), o Worker precisa de um **armazenamento KV** (grátis).
+Sem isso, o app usa automaticamente o modo **arquivo** (que não precisa de nada).
+
+### Passo A — Criar o KV
+1. No painel Cloudflare: **Storage & Databases → KV** (ou *Workers & Pages →
+   KV*).
+2. **Create a namespace** → nome: `cottage-boards` → **Add**.
+
+### Passo B — Ligar o KV ao Worker (binding)
+1. Abra seu Worker `cottage-color-proxy` → **Settings → Bindings** (ou
+   *Variables → KV Namespace Bindings*).
+2. **Add binding → KV namespace**:
+   - **Variable name:** `SHARE`  *(tem que ser exatamente isso)*
+   - **KV namespace:** escolha `cottage-boards`
+3. **Deploy** / Save.
+
+### Passo C — Atualizar o código do Worker
+Se você criou o Worker antes desta parte existir, reabra **Edit code**, apague
+tudo e cole de novo o conteúdo atualizado de `cottage-color-proxy.js` (já traz
+as rotas `/share` e `/board`). **Deploy**.
+
+Pronto — o botão **Enviar link** passa a gerar links. Cada quadro fica guardado
+por ~180 dias. (Nada muda para você; o app detecta sozinho que o KV existe.)
+
+### Testar (opcional)
+`https://.../board?id=teste` deve responder `{"error":"quadro não encontrado"}`
+(id inexistente) — se responder isso, o KV está ligado. Se disser
+`armazenamento (KV) não configurado`, revise os Passos A/B.

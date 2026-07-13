@@ -74,6 +74,12 @@
     winMenuBtn: document.getElementById('win-menu-btn'),
     winShareBtn:document.getElementById('win-share-btn'),
     restartBtn: document.getElementById('restart-btn'),
+    boardShare: document.getElementById('boardshare'),
+    bsLink:     document.getElementById('bs-link'),
+    bsFile:     document.getElementById('bs-file'),
+    bsStatus:   document.getElementById('bs-status'),
+    bsClose:    document.getElementById('bs-close'),
+    boardFile:  document.getElementById('board-file'),
     share:      document.getElementById('share'),
     sharePreview:document.getElementById('share-preview'),
     shareBa:    document.getElementById('share-ba'),
@@ -191,6 +197,14 @@
     addWeb.addEventListener('click', openWebSearch);
     el.menuGrid.appendChild(addWeb);
 
+    // "Abrir quadro recebido" tile — import a board a friend sent as a file.
+    const addOpen = document.createElement('button');
+    addOpen.className = 'card card-add card-add-open';
+    addOpen.setAttribute('aria-label', 'Abrir quadro recebido');
+    addOpen.innerHTML = '<span class="add-plus">📂</span><span class="add-label">Abrir quadro recebido</span>';
+    addOpen.addEventListener('click', function () { el.boardFile.value = ''; el.boardFile.click(); });
+    el.menuGrid.appendChild(addOpen);
+
     // Custom boards made from photos/SVG (with delete) — "Minhas imagens".
     const custom = loadCustomBoards();
     if (custom.length) {
@@ -257,6 +271,17 @@
       '<span class="card-progress">' + (pct === 100 ? '✓ Concluído' : pct + '%') + '</span>';
     card.appendChild(meta);
     if (deletable) {
+      const shr = document.createElement('span');
+      shr.className = 'card-share';
+      shr.textContent = '📤';
+      shr.setAttribute('role', 'button');
+      shr.setAttribute('aria-label', 'Enviar para um amigo');
+      shr.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openBoardShare(board);
+      });
+      card.appendChild(shr);
+
       const ren = document.createElement('span');
       ren.className = 'card-rename';
       ren.textContent = '✎';
@@ -1303,6 +1328,123 @@
     startBoard(board);
   }
 
+  // =========================================================================
+  //  Share a PLAYABLE board with a friend (Etapa 3+) — link or file
+  // =========================================================================
+  // A custom board is already plain JSON (that's how it's saved), so sharing is
+  // just serialize -> deliver -> import. Link uses the Worker's KV (/share,
+  // /board); file works with no server at all.
+  let shareTarget = null;   // board currently being shared
+
+  function openBoardShare(board) {
+    shareTarget = board;
+    el.bsStatus.textContent = proxyReady()
+      ? 'Link: abre pronto no celular do amigo. Arquivo: o amigo importa no app.'
+      : 'Envie por Arquivo (o link ainda está sendo configurado).';
+    el.bsLink.disabled = !proxyReady();
+    el.boardShare.classList.remove('hidden');
+  }
+  function closeBoardShare() { el.boardShare.classList.add('hidden'); shareTarget = null; }
+
+  function boardToJson(board) { return JSON.stringify(board); }
+
+  // Give an incoming board a fresh id so it doesn't collide with the friend's
+  // own boards / progress, and mark where it came from.
+  function normalizeSharedBoard(b) {
+    if (!b || !b.regions || !b.palette || !b.viewBox) throw new Error('formato inválido');
+    b.id = 'shared-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    b.subtitle = 'Recebido de um amigo';
+    if (!b.title) b.title = 'Quadro recebido';
+    return b;
+  }
+
+  function shareBoardFile(board) {
+    const fname = String(board.title || 'quadro').replace(/[^\w\-]+/g, '_').slice(0, 40) + '.ccb.json';
+    const blob = new Blob([boardToJson(board)], { type: 'application/json' });
+    try {
+      const file = new File([blob], fname, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: board.title,
+          text: 'Joga esse quadro comigo no Cottage Color! 🏡' }).catch(function () {});
+        el.bsStatus.textContent = 'Escolha o app para enviar o arquivo. 👍';
+        return;
+      }
+    } catch (_) { /* fall through to download */ }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    el.bsStatus.textContent = 'Arquivo salvo. Envie-o ao seu amigo (ex.: WhatsApp → Documento).';
+  }
+
+  function shareBoardLink(board) {
+    if (!proxyReady()) { el.bsStatus.textContent = 'O link ainda não foi configurado. Use Salvar arquivo.'; return; }
+    el.bsStatus.textContent = 'Gerando link…';
+    el.bsLink.disabled = true;
+    fetch(proxyBase() + '/share', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: boardToJson(board)
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      el.bsLink.disabled = false;
+      if (d.error || !d.id) {
+        el.bsStatus.textContent = 'Não deu para gerar o link (' + (d.error || 'erro') + '). Use Salvar arquivo.';
+        return;
+      }
+      const link = location.origin + location.pathname + '#play=' + d.id;
+      const msg = 'Joga esse quadro comigo no Cottage Color! 🏡\n' + link;
+      if (navigator.share) {
+        navigator.share({ title: 'Cottage Color', text: msg }).catch(function () {});
+        el.bsStatus.textContent = 'Escolha onde enviar o link. 👍';
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(function () {
+          el.bsStatus.textContent = 'Link copiado! Cole no WhatsApp: ' + link;
+        }, function () { el.bsStatus.textContent = link; });
+      } else {
+        el.bsStatus.textContent = link;
+      }
+    }).catch(function () {
+      el.bsLink.disabled = false;
+      el.bsStatus.textContent = 'Falha ao gerar o link. Use Salvar arquivo.';
+    });
+  }
+
+  // Import a board file a friend sent, then play it.
+  function onBoardFileChosen(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = function () {
+      try {
+        const board = normalizeSharedBoard(JSON.parse(String(r.result || '')));
+        addCustomBoard(board);
+        buildMenu();
+        startBoard(board);
+      } catch (err) {
+        alert('Não consegui abrir esse arquivo de quadro. Confirme que é o arquivo certo (.ccb.json).');
+      }
+    };
+    r.onerror = function () { alert('Não consegui ler o arquivo.'); };
+    r.readAsText(file);
+  }
+
+  // Open a shared board from a link (#play=<id>) on load.
+  function checkSharedLink() {
+    const m = /[#&?]play=([A-Za-z0-9_-]+)/.exec(location.hash || '') ||
+              /[?&]play=([A-Za-z0-9_-]+)/.exec(location.search || '');
+    if (!m || !proxyReady()) return;
+    const id = m[1];
+    // clear it so a refresh doesn't re-trigger
+    try { history.replaceState(null, '', location.pathname); } catch (_) {}
+    fetch(proxyBase() + '/board?id=' + encodeURIComponent(id))
+      .then(function (r) { return r.json(); })
+      .then(function (b) {
+        if (!b || b.error) { return; }
+        const board = normalizeSharedBoard(b);
+        addCustomBoard(board);
+        buildMenu();
+        startBoard(board);
+      }).catch(function () {});
+  }
+
   function playUpload() {
     if (!up.board) return;
     up.board.title = customTitle(el.upTitle, 'Minha imagem');
@@ -1388,11 +1530,20 @@
       btn.addEventListener('click', function () { wsSetDetail(btn.dataset.detail); if (ws.img) wsRegen(); });
     });
 
+    // Share a playable board / import one from a friend
+    el.bsLink.addEventListener('click', function () { if (shareTarget) shareBoardLink(shareTarget); });
+    el.bsFile.addEventListener('click', function () { if (shareTarget) shareBoardFile(shareTarget); });
+    el.bsClose.addEventListener('click', closeBoardShare);
+    el.boardFile.addEventListener('change', onBoardFileChosen);
+
     el.viewport.addEventListener('pointerdown', onPointerDown);
     el.viewport.addEventListener('pointermove', onPointerMove);
     el.viewport.addEventListener('pointerup', onPointerUp);
     el.viewport.addEventListener('pointercancel', onPointerUp);
     el.viewport.addEventListener('wheel', onWheel, { passive: false });
+
+    // If opened via a shared link (#play=<id>), load that board straight away.
+    checkSharedLink();
   }
 
   document.addEventListener('DOMContentLoaded', init);
