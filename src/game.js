@@ -36,6 +36,18 @@
     menuSearch: document.getElementById('menu-search'),
     tutorial:   document.getElementById('tutorial'),
     tutClose:   document.getElementById('tut-close'),
+    ggBar:      document.getElementById('gg-bar'),
+    ggStreak:   document.getElementById('gg-streak'),
+    ggLevel:    document.getElementById('gg-level'),
+    rewards:    document.getElementById('rewards'),
+    rwLevel:    document.getElementById('rw-level'),
+    rwXp:       document.getElementById('rw-xp'),
+    rwBar:      document.getElementById('rw-bar'),
+    rwStreak:   document.getElementById('rw-streak'),
+    rwWeek:     document.getElementById('rw-week'),
+    rwAch:      document.getElementById('rw-ach'),
+    rwClose:    document.getElementById('rw-close'),
+    toast:      document.getElementById('toast'),
     game:       document.getElementById('game'),
     win:        document.getElementById('win'),
     hintBtn:    document.getElementById('hint-btn'),
@@ -346,6 +358,7 @@
     if (f.kind === 'acervo') { startBoard(f.board); return; }
     // Reuse the web-search preview flow: show the daily image and pick it.
     openWebSearch();
+    ws.fromDaily = true;   // so completing it unlocks the "Do dia" achievement
     el.wsQ.value = f.theme;
     el.wsStatus.textContent = 'Imagem do dia: ' + cap(f.theme);
     renderWsResults([f.hit]);
@@ -376,10 +389,220 @@
     el.menuGrid.appendChild(card);
   }
 
+  // =========================================================================
+  //  Gamification (per device): streak, weekly goal, XP/level, achievements
+  // =========================================================================
+  const GG_KEY = STORAGE_PREFIX + 'gg';
+  const WEEKLY_KEY = STORAGE_PREFIX + 'weekly';
+
+  const PAINTER_LEVELS = [
+    { min: 0, name: 'Aprendiz' }, { min: 150, name: 'Pintor' },
+    { min: 500, name: 'Artista' }, { min: 1200, name: 'Mestre' },
+    { min: 2500, name: 'Grande Mestre' }, { min: 5000, name: 'Lenda' }
+  ];
+  const ACHIEVEMENTS = [
+    { id: 'first', icon: '🎨', title: 'Primeira obra', desc: 'Conclua seu primeiro quadro' },
+    { id: 'boards10', icon: '🖼️', title: 'Colecionador', desc: 'Conclua 10 quadros' },
+    { id: 'regions1k', icon: '🖌️', title: 'Mão cheia', desc: 'Pinte 1.000 regiões no total' },
+    { id: 'daily', icon: '🌅', title: 'Do dia', desc: 'Conclua a imagem do dia' },
+    { id: 'share', icon: '📤', title: 'Amigo pintor', desc: 'Envie um quadro para um amigo' },
+    { id: 'streak7', icon: '🔥', title: 'Semana quente', desc: 'Jogue 7 dias seguidos' },
+    { id: 'streak30', icon: '⚡', title: 'Imparável', desc: 'Jogue 30 dias seguidos' },
+    { id: 'perfectweek', icon: '🏆', title: 'Semana perfeita', desc: 'Pinte em todos os 7 dias da semana' }
+  ];
+  const ACH_BY_ID = {}; ACHIEVEMENTS.forEach(function (a) { ACH_BY_ID[a.id] = a; });
+
+  function normalizeGG(g) {
+    g = g || {};
+    g.xp = g.xp || 0;
+    g.regionsPainted = g.regionsPainted || 0;
+    g.boardsCompleted = g.boardsCompleted || 0;
+    g.streak = g.streak || 0;
+    g.bestStreak = g.bestStreak || 0;
+    g.lastActiveDay = (typeof g.lastActiveDay === 'number') ? g.lastActiveDay : null;
+    g.freezes = (typeof g.freezes === 'number') ? g.freezes : 1;
+    g.week = (g.week && Array.isArray(g.week.days) && g.week.days.length === 7)
+      ? g.week : { key: null, days: [false, false, false, false, false, false, false] };
+    g.weeklyUnlocked = g.weeklyUnlocked || null;
+    g.ach = g.ach || {};
+    return g;
+  }
+  let gg = loadGG();
+  let weeklyFeature = null;
+  function loadGG() { try { return normalizeGG(JSON.parse(localStorage.getItem(GG_KEY))); } catch (_) { return normalizeGG({}); } }
+  function saveGG() { try { localStorage.setItem(GG_KEY, JSON.stringify(gg)); } catch (_) {} }
+
+  function dayIdx() { const d = new Date(); return Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000); }
+  function weekdayMon() { return (new Date().getDay() + 6) % 7; }   // 0=Mon .. 6=Sun
+  function weekStartIdx() { return dayIdx() - weekdayMon(); }
+
+  function levelOf(xp) {
+    let idx = 0;
+    for (let i = 0; i < PAINTER_LEVELS.length; i++) if (xp >= PAINTER_LEVELS[i].min) idx = i;
+    const next = PAINTER_LEVELS[idx + 1] || null;
+    return { idx: idx, name: PAINTER_LEVELS[idx].name, min: PAINTER_LEVELS[idx].min, next: next ? next.min : null };
+  }
+
+  function toast(msg) {
+    if (!el.toast) return;
+    const t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    el.toast.appendChild(t);
+    setTimeout(function () { t.classList.add('show'); }, 20);
+    setTimeout(function () { t.classList.remove('show'); }, 3200);
+    setTimeout(function () { t.remove(); }, 3600);
+  }
+  function unlock(id) {
+    if (gg.ach[id]) return;
+    gg.ach[id] = Date.now();
+    if (ACH_BY_ID[id]) toast('🏅 Conquista: ' + ACH_BY_ID[id].title);
+  }
+  function addXp(n) {
+    const before = levelOf(gg.xp).idx;
+    gg.xp += n;
+    if (levelOf(gg.xp).idx > before) toast('⭐ Novo nível: ' + levelOf(gg.xp).name + '!');
+  }
+
+  // Mark that the player was active today: advance streak + weekly dots, and
+  // fire the weekly reward on a perfect week.
+  function markPlayedToday() {
+    const today = dayIdx();
+    if (gg.lastActiveDay !== today) {
+      if (gg.lastActiveDay === today - 1) gg.streak += 1;
+      else if (gg.lastActiveDay != null && today - gg.lastActiveDay === 2 && gg.freezes > 0) { gg.freezes -= 1; gg.streak += 1; }
+      else gg.streak = 1;
+      gg.lastActiveDay = today;
+      gg.bestStreak = Math.max(gg.bestStreak, gg.streak);
+      if (gg.streak >= 7) unlock('streak7');
+      if (gg.streak >= 30) unlock('streak30');
+    }
+    const wk = String(weekStartIdx());
+    if (gg.week.key !== wk) { gg.week = { key: wk, days: [false, false, false, false, false, false, false] }; gg.freezes = Math.max(gg.freezes, 1); }
+    gg.week.days[weekdayMon()] = true;
+    if (gg.week.days.every(Boolean) && gg.weeklyUnlocked !== wk) {
+      gg.weeklyUnlocked = wk;
+      unlock('perfectweek');
+      addXp(100);
+      toast('🏆 Semana perfeita! Quadro da Semana desbloqueado!');
+      fetchWeekly();
+    }
+  }
+
+  // Gameplay hooks
+  function gamifyPaint() {
+    gg.regionsPainted += 1;
+    addXp(1);
+    markPlayedToday();
+    if (gg.regionsPainted >= 1000) unlock('regions1k');
+    saveGG();
+  }
+  function gamifyComplete(board) {
+    gg.boardsCompleted += 1;
+    addXp(25);
+    unlock('first');
+    if (gg.boardsCompleted >= 10) unlock('boards10');
+    if (board && board.fromDaily) unlock('daily');
+    markPlayedToday();
+    saveGG();
+  }
+  function gamifyShare() { unlock('share'); saveGG(); }
+
+  // The special "Quadro da Semana" image (deterministic by week), shown after a
+  // perfect week. Reuses the web-search proxy; silently skips if unavailable.
+  const WEEKLY_THEMES = ['jardim encantado', 'vilarejo', 'floresta', 'castelo',
+    'farol', 'montanhas nevadas', 'praia tropical', 'céu estrelado'];
+  function fetchWeekly() {
+    const wk = String(weekStartIdx());
+    let cached = null; try { cached = JSON.parse(localStorage.getItem(WEEKLY_KEY)); } catch (_) {}
+    if (cached && cached.week === wk && cached.hit) { weeklyFeature = { theme: cached.theme, hit: cached.hit }; buildMenu(); return; }
+    if (!proxyReady()) return;
+    const wnum = Math.floor(weekStartIdx() / 7);
+    const theme = WEEKLY_THEMES[wnum % WEEKLY_THEMES.length];
+    fetch(proxyBase() + '/search?q=' + encodeURIComponent(theme))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        const hits = (data.hits || []).filter(function (h) { return h.thumb && h.full; });
+        if (!hits.length) return;
+        weeklyFeature = { theme: theme, hit: hits[wnum % hits.length] };
+        try { localStorage.setItem(WEEKLY_KEY, JSON.stringify({ week: wk, theme: theme, hit: weeklyFeature.hit })); } catch (_) {}
+        buildMenu();
+      }).catch(function () {});
+  }
+
+  function refreshGGBar() {
+    if (!el.ggStreak) return;
+    el.ggStreak.textContent = '🔥 ' + gg.streak;
+    el.ggLevel.textContent = '⭐ ' + levelOf(gg.xp).name;
+  }
+
+  function renderWeeklyCard() {
+    const wk = String(weekStartIdx());
+    const days = (gg.week.key === wk) ? gg.week.days : [false, false, false, false, false, false, false];
+    const count = days.filter(Boolean).length;
+    const perfect = count === 7;
+    const labels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+    let dots = '';
+    for (let i = 0; i < 7; i++) dots += '<span class="wk-dot' + (days[i] ? ' on' : '') + '">' + labels[i] + '</span>';
+    const card = document.createElement('div');
+    card.className = 'weekly-card' + (perfect ? ' perfect' : '');
+    card.innerHTML =
+      '<div class="wk-head"><span class="wk-title">📅 Meta da semana</span>' +
+      '<span class="wk-count">' + (perfect ? 'Perfeita! 🏆' : count + '/7') + '</span></div>' +
+      '<div class="wk-dots">' + dots + '</div>';
+    el.menuGrid.appendChild(card);
+  }
+
+  function renderWeeklyReward() {
+    if (gg.weeklyUnlocked !== String(weekStartIdx()) || !weeklyFeature) return;
+    const f = weeklyFeature;
+    const card = document.createElement('button');
+    card.className = 'feature-card weekly-reward';
+    const im = document.createElement('img'); im.className = 'feature-thumb'; im.src = f.hit.thumb; im.alt = '';
+    card.appendChild(im);
+    const body = document.createElement('span'); body.className = 'feature-body';
+    body.innerHTML = '<span class="feature-kicker">🏆 Quadro da Semana</span><span class="feature-title">' + cap(f.theme) + '</span>';
+    card.appendChild(body);
+    const go = document.createElement('span'); go.className = 'feature-go'; go.textContent = 'Jogar ›'; card.appendChild(go);
+    card.addEventListener('click', function () {
+      ws.fromDaily = false;
+      openWebSearch(); el.wsQ.value = f.theme;
+      el.wsStatus.textContent = 'Quadro da Semana: ' + cap(f.theme);
+      renderWsResults([f.hit]); wsPick(f.hit);
+    });
+    el.menuGrid.appendChild(card);
+  }
+
+  // Rewards / profile overlay
+  function openRewards() { renderRewards(); el.rewards.classList.remove('hidden'); }
+  function closeRewards() { el.rewards.classList.add('hidden'); }
+  function renderRewards() {
+    const lv = levelOf(gg.xp);
+    el.rwLevel.textContent = lv.name;
+    el.rwXp.textContent = lv.next ? (gg.xp + ' / ' + lv.next + ' XP') : (gg.xp + ' XP');
+    el.rwBar.style.width = (lv.next ? Math.round((gg.xp - lv.min) / (lv.next - lv.min) * 100) : 100) + '%';
+    el.rwStreak.textContent = gg.streak + (gg.streak === 1 ? ' dia' : ' dias') + ' · recorde ' + gg.bestStreak;
+    const wk = String(weekStartIdx());
+    const days = (gg.week.key === wk) ? gg.week.days : [false, false, false, false, false, false, false];
+    const labels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+    let dots = '';
+    for (let i = 0; i < 7; i++) dots += '<span class="wk-dot' + (days[i] ? ' on' : '') + '">' + labels[i] + '</span>';
+    el.rwWeek.innerHTML = dots;
+    el.rwAch.innerHTML = '';
+    ACHIEVEMENTS.forEach(function (a) {
+      const got = !!gg.ach[a.id];
+      const d = document.createElement('div');
+      d.className = 'ach' + (got ? ' got' : '');
+      d.innerHTML = '<span class="ach-ic">' + a.icon + '</span>' +
+        '<span class="ach-t">' + a.title + '</span><span class="ach-d">' + a.desc + '</span>';
+      el.rwAch.appendChild(d);
+    });
+  }
+
   function buildMenu() {
     el.menuGrid.innerHTML = '';
     const q = menuQuery.trim().toLowerCase();
-    if (!q) { renderContinueCard(); renderDailyCard(); }
+    if (!q) { renderWeeklyReward(); renderContinueCard(); renderDailyCard(); renderWeeklyCard(); }
+    refreshGGBar();
     renderActionTiles();
     syncMenuTools();
 
@@ -874,6 +1097,7 @@
   }
 
   function afterFill(justUsedColor) {
+    gamifyPaint();
     refreshPaletteCounts();
     updateProgress();
     saveProgress();
@@ -923,6 +1147,7 @@
   //  Win
   // =========================================================================
   function win() {
+    gamifyComplete(state.level);
     // Reveal the finished picture cleanly: hide the game UI (palette, buttons)
     // so the artwork fills the screen, then a small congrats sheet at the bottom.
     resetView();
@@ -1411,7 +1636,7 @@
   // ('cottagecolor:proxy') for testing before it's hardcoded.
   const WEB_SEARCH_PROXY = 'https://cottage-color-proxy.fernando-apparecido.workers.dev';
 
-  const ws = { board: null, img: null, colors: 24, detail: 'mid', title: 'Imagem da web' };
+  const ws = { board: null, img: null, colors: 24, detail: 'mid', title: 'Imagem da web', fromDaily: false };
 
   function proxyBase() {
     let b = WEB_SEARCH_PROXY;
@@ -1422,6 +1647,7 @@
 
   function openWebSearch() {
     ws.board = null;
+    ws.fromDaily = false;
     el.wsResults.innerHTML = '';
     el.wsMake.classList.add('hidden');
     el.wsPlayBtn.disabled = true;
@@ -1435,6 +1661,7 @@
   function closeWebSearch() { el.webSearch.classList.add('hidden'); }
 
   function wsSearch() {
+    ws.fromDaily = false;   // a manual search is not the daily image
     const q = el.wsQ.value.trim();
     if (!proxyReady()) { el.wsStatus.textContent = 'A busca na web ainda não foi configurada.'; return; }
     if (!q) { el.wsStatus.textContent = 'Digite um tema para buscar.'; return; }
@@ -1552,6 +1779,7 @@
 
   function wsPlay() {
     if (!ws.board) return;
+    ws.board.fromDaily = !!ws.fromDaily;
     addCustomBoard(ws.board);
     const board = ws.board; ws.board = null;
     closeWebSearch();
@@ -1569,6 +1797,7 @@
 
   function openBoardShare(board) {
     shareTarget = board;
+    gamifyShare();
     el.bsStatus.textContent = proxyReady()
       ? 'Link: abre pronto no celular do amigo. Arquivo: o amigo importa no app.'
       : 'Envie por Arquivo (o link ainda está sendo configurado).';
@@ -1727,8 +1956,13 @@
       buildMenu();
       checkSharedLink();
       initDaily().then(buildMenu);
+      if (gg.weeklyUnlocked === String(weekStartIdx())) fetchWeekly();   // restore weekly reward card
     });
     maybeShowTutorial();
+
+    // Gamification: rewards/profile overlay
+    el.ggBar.addEventListener('click', openRewards);
+    el.rwClose.addEventListener('click', closeRewards);
 
     // Home toolbar: view mode + "only not done" filter + search by name
     Array.prototype.forEach.call(el.menuSort.children, function (btn) {

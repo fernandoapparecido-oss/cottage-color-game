@@ -24,6 +24,11 @@
         <h1>🏡 Cottage Color</h1>
         <p>Relaxe pintando por número</p>
       </div>
+      <button id="gg-bar" class="gg-bar" aria-label="Recompensas">
+        <span class="gg-chip" id="gg-streak">🔥 0</span>
+        <span class="gg-chip" id="gg-level">⭐ Aprendiz</span>
+        <span class="gg-more">🏆 Recompensas ›</span>
+      </button>
       <div id="menu-tools">
         <input id="menu-search" class="menu-search" type="search" placeholder="Buscar por nome…" autocomplete="off" />
         <div class="seg seg-sm" id="menu-sort">
@@ -215,6 +220,32 @@
         <button id="tut-close" class="btn-primary">Começar a pintar</button>
       </div>
     </section>
+
+    <!-- Rewards / profile -->
+    <section id="rewards" class="hidden">
+      <div class="rw-sheet">
+        <h2>🏆 Recompensas</h2>
+
+        <div class="rw-level-row">
+          <span class="rw-level-name" id="rw-level">Aprendiz</span>
+          <span class="rw-xp" id="rw-xp">0 XP</span>
+        </div>
+        <div class="rw-track"><div class="rw-fill" id="rw-bar"></div></div>
+
+        <div class="rw-stat"><span>🔥 Ofensiva</span><span id="rw-streak">0 dias</span></div>
+
+        <div class="rw-section-title">📅 Meta da semana</div>
+        <div class="wk-dots" id="rw-week"></div>
+        <p class="rw-hint">Pinte algo todos os dias para uma <b>semana perfeita</b> e ganhar o <b>Quadro da Semana</b>.</p>
+
+        <div class="rw-section-title">🏅 Conquistas</div>
+        <div class="rw-ach" id="rw-ach"></div>
+
+        <button id="rw-close" class="btn-primary">Fechar</button>
+      </div>
+    </section>
+
+    <div id="toast" class="toast-wrap"></div>
 
   </div>
 
