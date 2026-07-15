@@ -156,11 +156,15 @@ Detalhes de experiência que fazem o jogo parecer "de verdade".
   `worker/README.md`; sem KV, cai no arquivo.)*
 - ✅ **Nomear/renomear** quadros importados (campo Nome + botão ✎ nos cards).
 - ✅ **Recomeçar (↺)** funcionando na versão hospedada.
-- ⬜ Som/vibração ao pintar; micro-animação ao concluir uma cor.
-- ⬜ **Desfazer**; avanço de cor mais visível.
+- ✅ **Biblioteca**: modos de visão (Categorias/Nome/Recentes), **filtro "só
+  não feitos"** e **categorias colapsáveis**. Limite de importadas 6 → **50**
+  (armazenamento migrado para **IndexedDB**).
+- ✅ **Sensação de jogo (efeitos de tela)**: "pop" ao pintar, tremida no toque
+  errado, **celebração ao concluir uma cor** (bounce + ✓) com **avanço
+  automático**, e "bump" no contador. *(sem som/vibração, por escolha.)*
 - ⬜ Tutorial de primeira vez; página nas lojas, métricas, soft launch.
-- 🚫 **Arrastar o dedo para pintar** — *descartado* (não combina com este
-  estilo de jogo de precisão).
+- 🚫 **Arrastar o dedo para pintar** e **desfazer** — *descartados* (não
+  combinam com este estilo de jogo). Som/vibração também fora (só efeitos de tela).
 
 ### 🐞 Bugs conhecidos
 - *(nenhum em aberto)* — o **Recomeçar (↺)** voltou a funcionar na versão
