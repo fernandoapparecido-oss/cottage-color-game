@@ -304,6 +304,7 @@
   // Pick today's featured image (deterministic by date) via the web-search proxy;
   // fall back to a rotating acervo board when offline / not configured.
   function initDaily() {
+    if (dailyUsedToday()) return Promise.resolve();   // already played today
     const today = todayStr();
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(DAILY_KEY)); } catch (_) {}
@@ -329,8 +330,14 @@
     if (cur.length) dailyFeature = { kind: 'acervo', theme: theme, board: cur[dayNum() % cur.length] };
   }
 
+  // Once the player has actually played today's image of the day, stop offering
+  // it again for the rest of the day.
+  const DAILY_USED_KEY = STORAGE_PREFIX + 'dailyUsed';
+  function dailyUsedToday() { try { return localStorage.getItem(DAILY_USED_KEY) === todayStr(); } catch (_) { return false; } }
+  function markDailyUsed() { try { localStorage.setItem(DAILY_USED_KEY, todayStr()); } catch (_) {} }
+
   function renderDailyCard() {
-    if (!dailyFeature) return;
+    if (!dailyFeature || dailyUsedToday()) return;
     const f = dailyFeature;
     const card = document.createElement('button');
     card.className = 'feature-card daily-card';
@@ -355,7 +362,7 @@
 
   function openDaily() {
     const f = dailyFeature; if (!f) return;
-    if (f.kind === 'acervo') { startBoard(f.board); return; }
+    if (f.kind === 'acervo') { markDailyUsed(); startBoard(f.board); return; }
     // Reuse the web-search preview flow: show the daily image and pick it.
     openWebSearch();
     ws.fromDaily = true;   // so completing it unlocks the "Do dia" achievement
@@ -1780,6 +1787,7 @@
   function wsPlay() {
     if (!ws.board) return;
     ws.board.fromDaily = !!ws.fromDaily;
+    if (ws.fromDaily) markDailyUsed();   // stop offering today's image again
     addCustomBoard(ws.board);
     const board = ws.board; ws.board = null;
     closeWebSearch();
