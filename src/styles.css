@@ -597,6 +597,71 @@ body {
   white-space: nowrap;
 }
 .menu-todo input { accent-color: var(--accent); width: 16px; height: 16px; }
+.menu-search {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid #e4ddd2;
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+/* Feature cards: "Continuar" and "Imagem do dia" (full-width banners on top) */
+.feature-card {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 2px 10px rgba(80, 60, 40, 0.08);
+  cursor: pointer;
+  text-align: left;
+}
+.continue-card { background: linear-gradient(100deg, #ffffff, #fdf3ee); }
+.daily-card { background: linear-gradient(100deg, #ffffff, #eef4fb); }
+.feature-thumb {
+  flex: none;
+  width: 58px; height: 58px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #f2ede4;
+}
+.feature-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.feature-kicker { font-size: 12px; font-weight: 700; color: var(--accent); }
+.feature-title {
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.feature-sub { font-size: 12px; color: var(--muted); }
+.feature-go { flex: none; font-size: 13px; font-weight: 700; color: var(--accent); }
+
+/* First-time tutorial */
+#tutorial {
+  position: absolute; inset: 0;
+  background: rgba(48, 40, 32, 0.6);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 22px; z-index: 20;
+}
+#tutorial.hidden { display: none; }
+.tut-sheet {
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 22px 20px;
+  max-width: 380px; width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.tut-sheet h2 { margin: 0 0 12px; font-size: 20px; }
+.tut-list { margin: 0 0 18px; padding-left: 18px; }
+.tut-list li { margin: 8px 0; font-size: 14px; line-height: 1.4; color: var(--ink); }
+.tut-list b { color: var(--accent); }
+.tut-sheet .btn-primary { width: 100%; }
 
 /* Share overlay */
 #share {

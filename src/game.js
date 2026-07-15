@@ -33,6 +33,9 @@
     menuGrid:   document.getElementById('menu-grid'),
     menuSort:   document.getElementById('menu-sort'),
     menuTodo:   document.getElementById('menu-todo'),
+    menuSearch: document.getElementById('menu-search'),
+    tutorial:   document.getElementById('tutorial'),
+    tutClose:   document.getElementById('tut-close'),
     game:       document.getElementById('game'),
     win:        document.getElementById('win'),
     hintBtn:    document.getElementById('hint-btn'),
@@ -269,15 +272,122 @@
 
   function pctOf(board) { return levelCompletion(board.id, board.regions.length); }
 
+  // ---- Search box, "continue", "image of the day" ------------------------
+  let menuQuery = '';
+  const LAST_KEY = STORAGE_PREFIX + 'last';
+  const DAILY_KEY = STORAGE_PREFIX + 'daily';
+  let dailyFeature = null;   // { kind:'web', theme, hit } | { kind:'acervo', theme, board }
+
+  const DAILY_THEMES = [
+    'casa de campo', 'gato', 'flores', 'montanha', 'praia', 'coruja', 'raposa',
+    'jardim', 'farol', 'balão de ar quente', 'cachorro', 'pássaro', 'borboleta',
+    'árvore', 'lago', 'pôr do sol', 'vaso de flores', 'xícara de chá', 'cogumelo',
+    'abelha', 'castelo', 'veleiro', 'cacto', 'floresta', 'lua', 'guarda-chuva',
+    'bicicleta', 'sorvete', 'baleia', 'girassol'
+  ];
+  function cap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+  function todayStr() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function dayNum() { return Math.floor(Date.now() / 86400000); }   // days since epoch
+
+  // Pick today's featured image (deterministic by date) via the web-search proxy;
+  // fall back to a rotating acervo board when offline / not configured.
+  function initDaily() {
+    const today = todayStr();
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(DAILY_KEY)); } catch (_) {}
+    if (cached && cached.date === today && cached.hit) {
+      dailyFeature = { kind: 'web', theme: cached.theme, hit: cached.hit };
+      return Promise.resolve();
+    }
+    const theme = DAILY_THEMES[dayNum() % DAILY_THEMES.length];
+    if (!proxyReady()) { dailyFallback(theme); return Promise.resolve(); }
+    return fetch(proxyBase() + '/search?q=' + encodeURIComponent(theme))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        const hits = (data.hits || []).filter(function (h) { return h.thumb && h.full; });
+        if (!hits.length) { dailyFallback(theme); return; }
+        const hit = hits[dayNum() % hits.length];   // same image for everyone, that day
+        dailyFeature = { kind: 'web', theme: theme, hit: hit };
+        try { localStorage.setItem(DAILY_KEY, JSON.stringify({ date: today, theme: theme, hit: hit })); } catch (_) {}
+      })
+      .catch(function () { dailyFallback(theme); });
+  }
+  function dailyFallback(theme) {
+    const cur = window.CURATED || [];
+    if (cur.length) dailyFeature = { kind: 'acervo', theme: theme, board: cur[dayNum() % cur.length] };
+  }
+
+  function renderDailyCard() {
+    if (!dailyFeature) return;
+    const f = dailyFeature;
+    const card = document.createElement('button');
+    card.className = 'feature-card daily-card';
+    if (f.kind === 'web') {
+      const im = document.createElement('img');
+      im.className = 'feature-thumb'; im.src = f.hit.thumb; im.alt = '';
+      card.appendChild(im);
+    } else {
+      const t = buildThumbnail(f.board, pctOf(f.board)); t.classList.add('feature-thumb');
+      card.appendChild(t);
+    }
+    const body = document.createElement('span');
+    body.className = 'feature-body';
+    body.innerHTML = '<span class="feature-kicker">🌅 Imagem do dia</span>' +
+      '<span class="feature-title">' + cap(f.kind === 'acervo' ? f.board.title : f.theme) + '</span>';
+    card.appendChild(body);
+    const go = document.createElement('span'); go.className = 'feature-go'; go.textContent = 'Jogar ›';
+    card.appendChild(go);
+    card.addEventListener('click', openDaily);
+    el.menuGrid.appendChild(card);
+  }
+
+  function openDaily() {
+    const f = dailyFeature; if (!f) return;
+    if (f.kind === 'acervo') { startBoard(f.board); return; }
+    // Reuse the web-search preview flow: show the daily image and pick it.
+    openWebSearch();
+    el.wsQ.value = f.theme;
+    el.wsStatus.textContent = 'Imagem do dia: ' + cap(f.theme);
+    renderWsResults([f.hit]);
+    wsPick(f.hit);
+  }
+
+  function renderContinueCard() {
+    let lastId = null;
+    try { lastId = localStorage.getItem(LAST_KEY); } catch (_) {}
+    if (!lastId) return;
+    const it = allBoards().filter(function (x) { return x.board.id === lastId; })[0];
+    if (!it) return;
+    const pct = pctOf(it.board);
+    if (pct <= 0 || pct >= 100) return;    // only a board actually in progress
+    const card = document.createElement('button');
+    card.className = 'feature-card continue-card';
+    const t = buildThumbnail(it.board, pct); t.classList.add('feature-thumb');
+    card.appendChild(t);
+    const body = document.createElement('span');
+    body.className = 'feature-body';
+    body.innerHTML = '<span class="feature-kicker">▶ Continuar</span>' +
+      '<span class="feature-title">' + it.board.title + '</span>' +
+      '<span class="feature-sub">' + pct + '% pintado</span>';
+    card.appendChild(body);
+    const go = document.createElement('span'); go.className = 'feature-go'; go.textContent = 'Continuar ›';
+    card.appendChild(go);
+    card.addEventListener('click', it.start);
+    el.menuGrid.appendChild(card);
+  }
+
   function buildMenu() {
     el.menuGrid.innerHTML = '';
+    const q = menuQuery.trim().toLowerCase();
+    if (!q) { renderContinueCard(); renderDailyCard(); }
     renderActionTiles();
     syncMenuTools();
 
     let items = allBoards();
     if (menuState.onlyTodo) items = items.filter(function (it) { return pctOf(it.board) < 100; });
+    if (q) items = items.filter(function (it) { return it.board.title.toLowerCase().indexOf(q) >= 0; });
 
-    if (menuState.sort === 'name') {
+    if (q || menuState.sort === 'name') {
       items.sort(function (a, b) { return a.board.title.localeCompare(b.board.title, 'pt'); });
       items.forEach(renderItemCard);
     } else if (menuState.sort === 'date') {
@@ -302,7 +412,8 @@
     if (!items.length) {
       const empty = document.createElement('p');
       empty.className = 'menu-empty';
-      empty.textContent = menuState.onlyTodo ? 'Nada por fazer — tudo concluído! 🎉' : 'Nenhum quadro ainda.';
+      empty.textContent = q ? ('Nada encontrado para “' + menuQuery.trim() + '”.')
+        : (menuState.onlyTodo ? 'Nada por fazer — tudo concluído! 🎉' : 'Nenhum quadro ainda.');
       el.menuGrid.appendChild(empty);
     }
   }
@@ -445,6 +556,7 @@
   // Start an already-baked board (built-in or generated from a photo).
   function startBoard(board) {
     state.level = board;
+    try { localStorage.setItem(LAST_KEY, board.id); } catch (_) {}   // for "Continuar"
     state.regionEls = [];
     state.labelEls = [];
     state.filled = new Array(board.regions.length).fill(false);
@@ -1596,16 +1708,35 @@
   // =========================================================================
   //  Wiring
   // =========================================================================
+  // First-time "how to play" overlay (shown once).
+  const TUT_KEY = STORAGE_PREFIX + 'tut';
+  function maybeShowTutorial() {
+    let seen = null; try { seen = localStorage.getItem(TUT_KEY); } catch (_) {}
+    if (!seen) el.tutorial.classList.remove('hidden');
+  }
+  function closeTutorial() {
+    el.tutorial.classList.add('hidden');
+    try { localStorage.setItem(TUT_KEY, '1'); } catch (_) {}
+  }
+
   function init() {
     // Load the custom-board store (IndexedDB) before the first menu render, then
-    // handle any shared link (#play=<id>) once the store is ready.
-    loadCustomStore().then(function () { buildMenu(); checkSharedLink(); });
+    // handle any shared link (#play=<id>) once the store is ready, then fetch
+    // today's "image of the day" and re-render the menu when it arrives.
+    loadCustomStore().then(function () {
+      buildMenu();
+      checkSharedLink();
+      initDaily().then(buildMenu);
+    });
+    maybeShowTutorial();
 
-    // Home toolbar: view mode + "only not done" filter
+    // Home toolbar: view mode + "only not done" filter + search by name
     Array.prototype.forEach.call(el.menuSort.children, function (btn) {
       btn.addEventListener('click', function () { menuState.sort = btn.dataset.sort; saveMenuState(); buildMenu(); });
     });
     el.menuTodo.addEventListener('change', function () { menuState.onlyTodo = el.menuTodo.checked; saveMenuState(); buildMenu(); });
+    el.menuSearch.addEventListener('input', function () { menuQuery = el.menuSearch.value; buildMenu(); });
+    el.tutClose.addEventListener('click', closeTutorial);
 
     el.hintBtn.addEventListener('click', useHint);
     el.seekBtn.addEventListener('click', seekNext);

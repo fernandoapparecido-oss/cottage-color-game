@@ -25,6 +25,7 @@
         <p>Relaxe pintando por número</p>
       </div>
       <div id="menu-tools">
+        <input id="menu-search" class="menu-search" type="search" placeholder="Buscar por nome…" autocomplete="off" />
         <div class="seg seg-sm" id="menu-sort">
           <button data-sort="cat" class="on">Categorias</button>
           <button data-sort="name">Nome</button>
@@ -199,6 +200,21 @@
     </section>
 
     <input id="board-file" type="file" accept=".json,.ccb,application/json" hidden />
+
+    <!-- First-time tutorial -->
+    <section id="tutorial" class="hidden">
+      <div class="tut-sheet">
+        <h2>Como jogar 🎨</h2>
+        <ul class="tut-list">
+          <li><b>Toque</b> numa região com listras para pintá-la com a cor selecionada.</li>
+          <li>Cada <b>número</b> é uma cor. A barra de baixo mostra as cores e quantas regiões faltam.</li>
+          <li>Dê <b>zoom com dois dedos</b> para ver os detalhes e os números pequenos.</li>
+          <li>Traga imagens novas: <b>🔎 Buscar na web</b>, <b>Enviar imagem/SVG</b> ou a <b>🌅 Imagem do dia</b>.</li>
+          <li>Terminou? <b>Compartilhe</b> a obra ou envie o quadro para um amigo jogar.</li>
+        </ul>
+        <button id="tut-close" class="btn-primary">Começar a pintar</button>
+      </div>
+    </section>
 
   </div>
 
