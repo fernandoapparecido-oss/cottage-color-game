@@ -95,7 +95,10 @@ ativação do proxy pelo usuário.)*
 - ✅ **6 quadros** no acervo: 4 de PNG (Vilarejo, Cozinha, Safári, Casa na
   Árvore) + 2 de SVG (Lago ao Pôr do Sol, Montanhas ao Entardecer).
 - ✅ **Categorias** no menu (Minhas imagens, Paisagem, Casa, Animais, Clássicos).
-- ⬜ "Imagem do dia", coleções, "continuar de onde parou" em destaque na home.
+- ✅ **"Imagem do dia"** automática (tema do dia → busca no Pixabay, determinística
+  pela data; fallback do acervo offline) e **"continuar de onde parou"** em
+  destaque na home.
+- ⬜ Coleções/packs por tema.
 
 ---
 
@@ -162,7 +165,9 @@ Detalhes de experiência que fazem o jogo parecer "de verdade".
 - ✅ **Sensação de jogo (efeitos de tela)**: "pop" ao pintar, tremida no toque
   errado, **celebração ao concluir uma cor** (bounce + ✓) com **avanço
   automático**, e "bump" no contador. *(sem som/vibração, por escolha.)*
-- ⬜ Tutorial de primeira vez; página nas lojas, métricas, soft launch.
+- ✅ **Tutorial de primeira vez** (overlay "como jogar", uma vez) e **busca por
+  nome** na home.
+- ⬜ Página nas lojas, métricas, soft launch.
 - 🚫 **Arrastar o dedo para pintar** e **desfazer** — *descartados* (não
   combinam com este estilo de jogo). Som/vibração também fora (só efeitos de tela).
 
