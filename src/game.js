@@ -46,6 +46,8 @@
     rwStreak:   document.getElementById('rw-streak'),
     rwWeek:     document.getElementById('rw-week'),
     rwAch:      document.getElementById('rw-ach'),
+    rwAccountSec: document.getElementById('rw-account-sec'),
+    rwAccount:  document.getElementById('rw-account'),
     rwClose:    document.getElementById('rw-close'),
     toast:      document.getElementById('toast'),
     game:       document.getElementById('game'),
@@ -137,6 +139,7 @@
       state.filled.forEach((f, i) => { if (f) filledIdx.push(i); });
       localStorage.setItem(saveKey(state.level.id), JSON.stringify(filledIdx));
     } catch (_) { /* storage full / disabled — non-fatal */ }
+    cloudPushSoon();
   }
 
   function levelCompletion(id, totalRegions) {
@@ -437,7 +440,7 @@
   let gg = loadGG();
   let weeklyFeature = null;
   function loadGG() { try { return normalizeGG(JSON.parse(localStorage.getItem(GG_KEY))); } catch (_) { return normalizeGG({}); } }
-  function saveGG() { try { localStorage.setItem(GG_KEY, JSON.stringify(gg)); } catch (_) {} }
+  function saveGG() { try { localStorage.setItem(GG_KEY, JSON.stringify(gg)); } catch (_) {} cloudPushSoon(); }
 
   function dayIdx() { const d = new Date(); return Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000); }
   function weekdayMon() { return (new Date().getDay() + 6) % 7; }   // 0=Mon .. 6=Sun
@@ -603,6 +606,197 @@
         '<span class="ach-t">' + a.title + '</span><span class="ach-d">' + a.desc + '</span>';
       el.rwAch.appendChild(d);
     });
+    updateAccountUI();
+  }
+
+  // =========================================================================
+  //  Cloud sync (Fase 1): login por código de e-mail (Supabase) + merge
+  // =========================================================================
+  // Config: preenchido depois que o usuário criar o projeto Supabase. Pode ser
+  // sobrescrito via localStorage (para testes) com as chaves supaUrl/supaKey.
+  const SUPABASE_URL = 'https://COLE-AQUI.supabase.co';
+  const SUPABASE_ANON = 'COLE-AQUI-ANON-KEY';
+  let sb = null;          // supabase client
+  let cloudUser = null;   // { id, email } quando logado
+  let pushTimer = 0;
+
+  function cloudCfg() {
+    let url = SUPABASE_URL, key = SUPABASE_ANON;
+    try { url = localStorage.getItem(STORAGE_PREFIX + 'supaUrl') || url; key = localStorage.getItem(STORAGE_PREFIX + 'supaKey') || key; } catch (_) {}
+    return { url: url, key: key };
+  }
+  function cloudConfigured() { const c = cloudCfg(); return c.url.indexOf('COLE-AQUI') < 0 && c.key.indexOf('COLE-AQUI') < 0; }
+
+  function loadSupabaseSDK() {
+    return new Promise(function (res, rej) {
+      if (window.supabase && window.supabase.createClient) return res();
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  function cloudInit() {
+    if (!cloudConfigured()) { updateAccountUI(); return; }
+    loadSupabaseSDK().then(function () {
+      const c = cloudCfg();
+      try { sb = window.supabase.createClient(c.url, c.key, { auth: { persistSession: true, autoRefreshToken: true } }); }
+      catch (_) { sb = null; updateAccountUI(); return; }
+      sb.auth.getSession().then(function (r) {
+        const s = r && r.data && r.data.session;
+        if (s && s.user) { cloudUser = { id: s.user.id, email: s.user.email }; onSignedIn(); }
+        updateAccountUI();
+      });
+      sb.auth.onAuthStateChange(function (_e, session) {
+        cloudUser = (session && session.user) ? { id: session.user.id, email: session.user.email } : null;
+        updateAccountUI();
+      });
+    }, function () { updateAccountUI(); });
+  }
+
+  // ---- snapshots + merge --------------------------------------------------
+  const CLOUD_RESERVED = { custom:1, menu:1, last:1, daily:1, weekly:1, gg:1, tut:1, dailyUsed:1, proxy:1, supaUrl:1, supaKey:1 };
+  function progressSnapshot() {
+    const out = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf(STORAGE_PREFIX) !== 0) continue;
+        const suf = k.slice(STORAGE_PREFIX.length);
+        if (CLOUD_RESERVED[suf]) continue;
+        try { const v = JSON.parse(localStorage.getItem(k)); if (Array.isArray(v)) out[suf] = v; } catch (_) {}
+      }
+    } catch (_) {}
+    return out;
+  }
+  function localSnapshot() { return { gg: gg, progress: progressSnapshot() }; }
+  function applySnapshot(snap) {
+    if (snap.gg) { gg = normalizeGG(snap.gg); try { localStorage.setItem(GG_KEY, JSON.stringify(gg)); } catch (_) {} }
+    if (snap.progress) for (const id in snap.progress) {
+      try { localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(snap.progress[id])); } catch (_) {}
+    }
+  }
+
+  // Order-independent merge: max for cumulative counters, union for sets. Keeps
+  // logging in from resetting your streak/medals.
+  function mergeGGpair(a, b) {
+    a = normalizeGG(a); b = normalizeGG(b);
+    const g = normalizeGG({});
+    g.xp = Math.max(a.xp, b.xp);
+    g.regionsPainted = Math.max(a.regionsPainted, b.regionsPainted);
+    g.boardsCompleted = Math.max(a.boardsCompleted, b.boardsCompleted);
+    g.bestStreak = Math.max(a.bestStreak, b.bestStreak);
+    const ad = (a.lastActiveDay == null ? -1 : a.lastActiveDay), bd = (b.lastActiveDay == null ? -1 : b.lastActiveDay);
+    if (ad === bd) { g.lastActiveDay = (ad < 0 ? null : ad); g.streak = Math.max(a.streak, b.streak); }
+    else if (ad > bd) { g.lastActiveDay = a.lastActiveDay; g.streak = a.streak; }
+    else { g.lastActiveDay = b.lastActiveDay; g.streak = b.streak; }
+    g.bestStreak = Math.max(g.bestStreak, g.streak);
+    g.freezes = Math.max(a.freezes, b.freezes);
+    if (a.week.key === b.week.key) { g.week = { key: a.week.key, days: a.week.days.map(function (d, i) { return d || b.week.days[i]; }) }; }
+    else { g.week = (Number(a.week.key) >= Number(b.week.key)) ? a.week : b.week; }
+    const au = a.weeklyUnlocked ? Number(a.weeklyUnlocked) : -1, bu = b.weeklyUnlocked ? Number(b.weeklyUnlocked) : -1;
+    g.weeklyUnlocked = au >= bu ? (a.weeklyUnlocked || null) : (b.weeklyUnlocked || null);
+    g.ach = Object.assign({}, b.ach);
+    for (const k in a.ach) if (!g.ach[k] || a.ach[k] < g.ach[k]) g.ach[k] = a.ach[k];
+    return g;
+  }
+  function mergeProgressPair(a, b) {
+    const out = {}, ids = {};
+    for (const k in (a || {})) ids[k] = 1;
+    for (const k in (b || {})) ids[k] = 1;
+    for (const id in ids) {
+      const seen = {};
+      ((a && a[id]) || []).forEach(function (x) { seen[x] = 1; });
+      ((b && b[id]) || []).forEach(function (x) { seen[x] = 1; });
+      out[id] = Object.keys(seen).map(Number).sort(function (x, y) { return x - y; });
+    }
+    return out;
+  }
+  function mergeSnapshots(a, b) {
+    a = a || {}; b = b || {};
+    return { gg: mergeGGpair(a.gg || {}, b.gg || {}), progress: mergeProgressPair(a.progress || {}, b.progress || {}) };
+  }
+
+  // ---- auth actions + sync ------------------------------------------------
+  function onSignedIn() {
+    if (!sb || !cloudUser) return Promise.resolve();
+    return sb.from('profiles').select('data').eq('id', cloudUser.id).single().then(function (res) {
+      const cloud = (res && res.data && res.data.data) ? res.data.data : {};
+      const merged = mergeSnapshots(localSnapshot(), cloud);
+      applySnapshot(merged);
+      return cloudPush(merged);
+    }, function () { return cloudPush(localSnapshot()); }).then(function () {
+      refreshGGBar();
+      if (el.rewards && !el.rewards.classList.contains('hidden')) renderRewards();
+      if (el.menu && !el.menu.classList.contains('hidden')) buildMenu();
+    });
+  }
+  function cloudPush(snap) {
+    if (!sb || !cloudUser) return Promise.resolve();
+    return sb.from('profiles').upsert({ id: cloudUser.id, data: snap || localSnapshot(), updated_at: new Date().toISOString() })
+      .then(function () {}, function () {});
+  }
+  function cloudPushSoon() {
+    if (!sb || !cloudUser) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(function () { cloudPush(localSnapshot()); }, 2500);
+  }
+
+  const acct = { email: '', codeSent: false, busy: false };
+  function accountStatus(msg) { const s = document.getElementById('rw-auth-status'); if (s) s.textContent = msg || ''; }
+
+  function cloudSendCode() {
+    const email = (acct.email || '').trim();
+    if (!sb || !email || email.indexOf('@') < 0) { accountStatus('Digite um e-mail válido.'); return; }
+    acct.busy = true; accountStatus('Enviando código…');
+    sb.auth.signInWithOtp({ email: email }).then(function (r) {
+      acct.busy = false;
+      if (r && r.error) { accountStatus('Erro: ' + r.error.message); return; }
+      acct.codeSent = true; updateAccountUI();
+      accountStatus('Enviamos um código para ' + email + '. Confira o e-mail.');
+    }, function () { acct.busy = false; accountStatus('Falha ao enviar o código.'); });
+  }
+  function cloudVerifyCode() {
+    const code = (document.getElementById('rw-code') || {}).value;
+    if (!sb || !code) { accountStatus('Digite o código.'); return; }
+    accountStatus('Confirmando…');
+    sb.auth.verifyOtp({ email: acct.email, token: String(code).trim(), type: 'email' }).then(function (res) {
+      if (res && res.error) { accountStatus('Código inválido: ' + res.error.message); return; }
+      const u = res.data.session.user;
+      cloudUser = { id: u.id, email: u.email };
+      acct.codeSent = false;
+      accountStatus('Sincronizando…');
+      onSignedIn().then(function () { updateAccountUI(); accountStatus('Conectado e sincronizado ✓'); });
+    }, function () { accountStatus('Falha ao confirmar o código.'); });
+  }
+  function cloudSignOut() {
+    if (!sb) return;
+    sb.auth.signOut().then(function () { cloudUser = null; acct.codeSent = false; updateAccountUI(); });
+  }
+
+  function updateAccountUI() {
+    if (!el.rwAccountSec) return;
+    if (!cloudConfigured()) { el.rwAccountSec.style.display = 'none'; return; }
+    el.rwAccountSec.style.display = '';
+    const box = el.rwAccount;
+    if (cloudUser) {
+      box.innerHTML = '<p class="rw-acct-line">Conectado como <b>' + (cloudUser.email || 'você') + '</b></p>' +
+        '<p class="rw-acct-sub">Seu progresso sincroniza automaticamente. ✓</p>' +
+        '<button id="rw-signout" class="btn-ghost">Sair</button>';
+      const so = document.getElementById('rw-signout'); if (so) so.addEventListener('click', cloudSignOut);
+      return;
+    }
+    box.innerHTML =
+      '<p class="rw-acct-sub">Entre para <b>salvar e sincronizar</b> sua ofensiva, medalhas e progresso em outros aparelhos.</p>' +
+      '<input id="rw-email" class="name-input" type="email" inputmode="email" placeholder="seu@email.com" />' +
+      '<div id="rw-code-row" class="rw-code-row" ' + (acct.codeSent ? '' : 'hidden') + '>' +
+      '<input id="rw-code" class="name-input" inputmode="numeric" placeholder="Código de 6 dígitos" /></div>' +
+      '<button id="rw-auth-btn" class="btn-primary">' + (acct.codeSent ? 'Confirmar código' : 'Enviar código') + '</button>' +
+      '<p id="rw-auth-status" class="rw-acct-sub"></p>';
+    const em = document.getElementById('rw-email'); if (em) { em.value = acct.email; em.addEventListener('input', function () { acct.email = em.value; }); }
+    const btn = document.getElementById('rw-auth-btn');
+    if (btn) btn.addEventListener('click', function () { acct.codeSent ? cloudVerifyCode() : cloudSendCode(); });
   }
 
   function buildMenu() {
@@ -1971,6 +2165,9 @@
     // Gamification: rewards/profile overlay
     el.ggBar.addEventListener('click', openRewards);
     el.rwClose.addEventListener('click', closeRewards);
+
+    // Cloud sync (login) — inert until configured
+    cloudInit();
 
     // Home toolbar: view mode + "only not done" filter + search by name
     Array.prototype.forEach.call(el.menuSort.children, function (btn) {
