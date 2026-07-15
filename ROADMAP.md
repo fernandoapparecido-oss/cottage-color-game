@@ -167,8 +167,12 @@ Detalhes de experiência que fazem o jogo parecer "de verdade".
   automático**, e "bump" no contador. *(sem som/vibração, por escolha.)*
 - ✅ **Gamificação (pacote completo)**: **ofensiva diária** (🔥 + escudo semanal),
   **meta da semana** (7 dias → **Quadro da Semana**), **XP/níveis** de pintor,
-  **8 conquistas** e tela de **Recompensas** com avisos (toasts). *Tudo por
-  dispositivo (sem conta); sincronizar entre aparelhos = futuro (precisa login).*
+  **8 conquistas** e tela de **Recompensas** com avisos (toasts).
+- ✅ **Login + sincronização na nuvem (Fase 1)**: entrar com **código por e-mail**
+  (Supabase) sincroniza **gamificação + progresso** entre aparelhos, com **merge
+  seguro**. Login opcional (convidado primeiro). *Falta a ativação única do
+  Supabase (ver `supabase/README.md`) e ligar as chaves.* **Fase 2:** sincronizar
+  os quadros importados.
 - ✅ **Tutorial de primeira vez** (overlay "como jogar", uma vez) e **busca por
   nome** na home.
 - ⬜ Página nas lojas, métricas, soft launch.
