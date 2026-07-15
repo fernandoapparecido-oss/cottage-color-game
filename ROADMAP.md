@@ -165,6 +165,10 @@ Detalhes de experiência que fazem o jogo parecer "de verdade".
 - ✅ **Sensação de jogo (efeitos de tela)**: "pop" ao pintar, tremida no toque
   errado, **celebração ao concluir uma cor** (bounce + ✓) com **avanço
   automático**, e "bump" no contador. *(sem som/vibração, por escolha.)*
+- ✅ **Gamificação (pacote completo)**: **ofensiva diária** (🔥 + escudo semanal),
+  **meta da semana** (7 dias → **Quadro da Semana**), **XP/níveis** de pintor,
+  **8 conquistas** e tela de **Recompensas** com avisos (toasts). *Tudo por
+  dispositivo (sem conta); sincronizar entre aparelhos = futuro (precisa login).*
 - ✅ **Tutorial de primeira vez** (overlay "como jogar", uma vez) e **busca por
   nome** na home.
 - ⬜ Página nas lojas, métricas, soft launch.
