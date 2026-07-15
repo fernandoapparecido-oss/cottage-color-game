@@ -386,18 +386,21 @@ body {
    contour already mark them; a thick outline crowded out small regions. */
 .region.target { stroke: none; }
 .region.filled { cursor: default; }
-.region.pop { animation: pop 0.32s ease; }
-.region.wrong { animation: shake 0.3s ease; }
+.region.pop { transform-box: fill-box; transform-origin: center; animation: pop 0.38s cubic-bezier(.34,1.56,.64,1); }
+.region.wrong { transform-box: fill-box; transform-origin: center; animation: shake 0.34s ease; }
 
+/* A satisfying "stamp": a bright spark that settles, with a gentle overshoot. */
 @keyframes pop {
-  0% { transform: scale(1); transform-box: fill-box; transform-origin: center; }
-  40% { transform: scale(1.08); transform-box: fill-box; transform-origin: center; }
-  100% { transform: scale(1); transform-box: fill-box; transform-origin: center; }
+  0%   { transform: scale(1);    filter: brightness(1.7); }
+  45%  { transform: scale(1.1);  filter: brightness(1.18); }
+  100% { transform: scale(1);    filter: brightness(1); }
 }
 @keyframes shake {
   0%,100% { transform: translateX(0); }
-  25% { transform: translateX(-1.2px); }
-  75% { transform: translateX(1.2px); }
+  20% { transform: translateX(-2.6px); }
+  40% { transform: translateX(2.6px); }
+  60% { transform: translateX(-1.8px); }
+  80% { transform: translateX(1.8px); }
 }
 
 /* Seek highlight: a bright pulsing outline that points out the next region. */
@@ -478,6 +481,28 @@ body {
   font-size: 22px;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+}
+
+/* Celebrate the moment a color is finished: the swatch bounces and its ✓ pops. */
+.swatch.just-done { animation: swatchDone 0.6s ease; }
+.swatch.just-done::after { animation: checkPop 0.55s ease; }
+@keyframes swatchDone {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.2); }
+  55%  { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@keyframes checkPop {
+  0%   { transform: scale(0);   opacity: 0; }
+  60%  { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+/* The remaining-count badge gives a little bump each time it drops. */
+.swatch-count.bump { animation: bump 0.28s ease; }
+@keyframes bump {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.45); }
+  100% { transform: scale(1); }
 }
 
 /* ---------------- Win overlay ---------------- */

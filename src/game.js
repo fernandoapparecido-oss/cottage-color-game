@@ -754,8 +754,9 @@
     shape.classList.remove('target');
     shape.classList.add('filled');
     if (animate) {
+      shape.classList.remove('pop'); void shape.offsetWidth;   // restart if re-fired
       shape.classList.add('pop');
-      setTimeout(function () { shape.classList.remove('pop'); }, 320);
+      setTimeout(function () { shape.classList.remove('pop'); }, 400);
     }
     if (state.labelEls[i]) state.labelEls[i].style.display = 'none';
   }
@@ -766,10 +767,29 @@
     saveProgress();
     if (isComplete()) { win(); return; }
     if (remainingForColor(justUsedColor) === 0) {
+      celebrateSwatch(justUsedColor);        // little flourish on the finished color
       selectColor(firstIncompleteColor());   // auto-advance to next color
     } else {
+      bumpSwatchCount(justUsedColor);
       highlightSelected();
     }
+  }
+
+  function swatchEl(ci) { return el.palette.children[ci]; }
+
+  function celebrateSwatch(ci) {
+    const sw = swatchEl(ci); if (!sw) return;
+    sw.classList.remove('just-done'); void sw.offsetWidth;   // restart the animation
+    sw.classList.add('just-done');
+    setTimeout(function () { sw.classList.remove('just-done'); }, 640);
+  }
+
+  function bumpSwatchCount(ci) {
+    const sw = swatchEl(ci); if (!sw) return;
+    const c = sw.querySelector('.swatch-count'); if (!c) return;
+    c.classList.remove('bump'); void c.offsetWidth;
+    c.classList.add('bump');
+    setTimeout(function () { c.classList.remove('bump'); }, 300);
   }
 
   function wrongPulse(shapeEl) {
