@@ -139,23 +139,76 @@
     return boardCache[lvl.id];
   }
 
-  // Custom boards generated from photos, persisted as baked board JSON.
+  // Custom boards (photos/SVG/web/imports), persisted as baked board JSON.
+  // Stored in IndexedDB (large quota — many boards) with an in-memory cache so
+  // the rest of the code stays synchronous; falls back to localStorage when IDB
+  // is unavailable (e.g. some private-mode browsers).
   const CUSTOM_KEY = STORAGE_PREFIX + 'custom';
+  const MAX_CUSTOM = 50;               // was 6 (localStorage); IDB lifts the wall
+  let customCache = null;              // in-memory source of truth for the session
+  let idb = null;
+
+  function openIdb() {
+    return new Promise(function (resolve) {
+      try {
+        if (!self.indexedDB) return resolve(null);
+        const req = indexedDB.open('cottagecolor', 1);
+        req.onupgradeneeded = function () {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('boards')) db.createObjectStore('boards');
+        };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { resolve(null); };
+      } catch (_) { resolve(null); }
+    });
+  }
+  function idbLoad() {
+    return new Promise(function (resolve) {
+      if (!idb) return resolve(null);
+      try {
+        const req = idb.transaction('boards', 'readonly').objectStore('boards').get('list');
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { resolve(null); };
+      } catch (_) { resolve(null); }
+    });
+  }
+  function idbSave(list) {
+    if (!idb) return;
+    try { idb.transaction('boards', 'readwrite').objectStore('boards').put(list, 'list'); } catch (_) {}
+  }
+
+  // Load the custom store into memory once at startup (before the first menu).
+  // Migrates any boards from the old localStorage location into IndexedDB.
+  function loadCustomStore() {
+    return openIdb().then(function (db) {
+      idb = db;
+      return idbLoad();
+    }).then(function (list) {
+      if (!list) {
+        try { list = JSON.parse(localStorage.getItem(CUSTOM_KEY)) || []; } catch (_) { list = []; }
+        if (idb && list.length) idbSave(list);   // one-time migration from localStorage
+      }
+      customCache = Array.isArray(list) ? list : [];
+    }).catch(function () { customCache = []; });
+  }
+
   function loadCustomBoards() {
+    if (customCache) return customCache;
     try { return JSON.parse(localStorage.getItem(CUSTOM_KEY)) || []; } catch (_) { return []; }
   }
   function saveCustomBoards(list) {
+    customCache = list;
+    if (idb) { idbSave(list); return true; }
     try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(list)); return true; }
-    catch (_) { return false; }   // quota exceeded
+    catch (_) { return false; }   // localStorage quota (fallback path only)
   }
   function addCustomBoard(board) {
     if (!board.createdAt) board.createdAt = Date.now();   // import/creation date
-    const list = loadCustomBoards();
+    const list = loadCustomBoards().slice();
     list.unshift(board);
-    while (list.length > 6) list.pop();            // keep storage bounded
-    if (!saveCustomBoards(list)) {                // too big — drop oldest and retry
-      list.pop();
-      saveCustomBoards(list);
+    while (list.length > MAX_CUSTOM) list.pop();          // generous soft cap
+    if (!saveCustomBoards(list)) {                        // localStorage quota (no IDB)
+      while (list.length > 1 && !saveCustomBoards(list)) list.pop();
     }
   }
   function deleteCustomBoard(id) {
@@ -1524,7 +1577,9 @@
   //  Wiring
   // =========================================================================
   function init() {
-    buildMenu();
+    // Load the custom-board store (IndexedDB) before the first menu render, then
+    // handle any shared link (#play=<id>) once the store is ready.
+    loadCustomStore().then(function () { buildMenu(); checkSharedLink(); });
 
     // Home toolbar: view mode + "only not done" filter
     Array.prototype.forEach.call(el.menuSort.children, function (btn) {
@@ -1593,9 +1648,6 @@
     el.viewport.addEventListener('pointerup', onPointerUp);
     el.viewport.addEventListener('pointercancel', onPointerUp);
     el.viewport.addEventListener('wheel', onWheel, { passive: false });
-
-    // If opened via a shared link (#play=<id>), load that board straight away.
-    checkSharedLink();
   }
 
   document.addEventListener('DOMContentLoaded', init);
