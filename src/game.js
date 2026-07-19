@@ -614,8 +614,8 @@
   // =========================================================================
   // Config: preenchido depois que o usuário criar o projeto Supabase. Pode ser
   // sobrescrito via localStorage (para testes) com as chaves supaUrl/supaKey.
-  const SUPABASE_URL = 'https://COLE-AQUI.supabase.co';
-  const SUPABASE_ANON = 'COLE-AQUI-ANON-KEY';
+  const SUPABASE_URL = 'https://ewqsgkdymqncygfrruog.supabase.co';
+  const SUPABASE_ANON = 'sb_publishable_R-XgBm39w1fEPo_L08Cf_w_3-hrbIyw';
   let sb = null;          // supabase client
   let cloudUser = null;   // { id, email } quando logado
   let pushTimer = 0;
