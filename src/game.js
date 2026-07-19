@@ -941,6 +941,10 @@
       s.setAttribute('stroke-width', '0.3');
       svg.appendChild(s);
     });
+    // Draw the contour/line-art on top so thumbnails read as real drawings
+    // instead of flat color blobs (big difference on busy images).
+    const ink = buildInkLayer(board);
+    if (ink) { ink.style.pointerEvents = 'none'; svg.appendChild(ink); }
     return svg;
   }
 
