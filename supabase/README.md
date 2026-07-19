@@ -1,7 +1,7 @@
 # Login + sincronização (Fase 1) — configuração do Supabase
 
-O jogo continua **jogável sem login**. Quem entrar (com **código por e-mail**)
-passa a ter **ofensiva, medalhas, XP e progresso salvos na nuvem** e
+O jogo continua **jogável sem login**. Quem entrar (com um **link enviado por
+e-mail**) passa a ter **ofensiva, medalhas, XP e progresso salvos na nuvem** e
 **sincronizados entre aparelhos**. Sem senha, sem Google Cloud.
 
 É uma ativação única, gratuita — parecida com a do Cloudflare.
@@ -19,18 +19,20 @@ passa a ter **ofensiva, medalhas, XP e progresso salvos na nuvem** e
 2. Cole o conteúdo do arquivo **`supabase/schema.sql`** (deste repositório).
 3. **Run**. Deve dizer "Success".
 
-## Passo 3 — Fazer o e-mail enviar o CÓDIGO
-O login usa um **código de 6 dígitos**. Precisamos garantir que o e-mail mostre
-esse código:
-1. **Authentication → Emails → Templates → "Magic Link"** (ou "OTP").
-2. No corpo do e-mail, garanta que exista o código **`{{ .Token }}`** (pode
-   deixar algo como: *"Seu código: **{{ .Token }}**"*). Salve.
+## Passo 3 — Apontar a URL do jogo (importante)
+O login usa o **link de acesso** que o Supabase já manda por e-mail (o e-mail
+padrão "Your sign-in link"). **Não precisa editar template nenhum.** Mas o link
+precisa saber para onde voltar:
 
-> Sem isso, o e-mail manda só um link e não o código de 6 dígitos.
+1. **Authentication → URL Configuration**.
+2. Em **Site URL**, coloque:
+   `https://fernandoapparecido-oss.github.io/cottage-color-game/`
+3. Em **Redirect URLs**, adicione a mesma URL:
+   `https://fernandoapparecido-oss.github.io/cottage-color-game/`
+4. Salve.
 
-## Passo 4 — (Opcional) apontar a URL do jogo
-**Authentication → URL Configuration → Site URL:**
-`https://fernandoapparecido-oss.github.io/cottage-color-game/`
+> Sem isso, ao tocar no link do e-mail a pessoa pode cair numa página de erro em
+> vez de voltar pro jogo.
 
 ## Passo 5 — Me mandar as duas chaves
 Em **Project Settings → API**, copie:

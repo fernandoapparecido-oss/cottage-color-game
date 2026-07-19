@@ -641,17 +641,17 @@
     if (!cloudConfigured()) { updateAccountUI(); return; }
     loadSupabaseSDK().then(function () {
       const c = cloudCfg();
-      try { sb = window.supabase.createClient(c.url, c.key, { auth: { persistSession: true, autoRefreshToken: true } }); }
+      try { sb = window.supabase.createClient(c.url, c.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); }
       catch (_) { sb = null; updateAccountUI(); return; }
-      sb.auth.getSession().then(function (r) {
-        const s = r && r.data && r.data.session;
-        if (s && s.user) { cloudUser = { id: s.user.id, email: s.user.email }; onSignedIn(); }
-        updateAccountUI();
-      });
-      sb.auth.onAuthStateChange(function (_e, session) {
+      // Handles both the restored session on load (INITIAL_SESSION) and a fresh
+      // sign-in when the user returns from the e-mail link (SIGNED_IN).
+      sb.auth.onAuthStateChange(function (_event, session) {
+        const was = !!cloudUser;
         cloudUser = (session && session.user) ? { id: session.user.id, email: session.user.email } : null;
-        updateAccountUI();
+        if (cloudUser && !was) onSignedIn().then(function () { updateAccountUI(); accountStatus('Conectado e sincronizado ✓'); });
+        else updateAccountUI();
       });
+      updateAccountUI();
     }, function () { updateAccountUI(); });
   }
 
@@ -743,36 +743,21 @@
     pushTimer = setTimeout(function () { cloudPush(localSnapshot()); }, 2500);
   }
 
-  const acct = { email: '', codeSent: false, busy: false };
+  const acct = { email: '' };
   function accountStatus(msg) { const s = document.getElementById('rw-auth-status'); if (s) s.textContent = msg || ''; }
 
-  function cloudSendCode() {
+  function cloudSendLink() {
     const email = (acct.email || '').trim();
     if (!sb || !email || email.indexOf('@') < 0) { accountStatus('Digite um e-mail válido.'); return; }
-    acct.busy = true; accountStatus('Enviando código…');
-    sb.auth.signInWithOtp({ email: email }).then(function (r) {
-      acct.busy = false;
+    accountStatus('Enviando link…');
+    sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: location.origin + location.pathname } }).then(function (r) {
       if (r && r.error) { accountStatus('Erro: ' + r.error.message); return; }
-      acct.codeSent = true; updateAccountUI();
-      accountStatus('Enviamos um código para ' + email + '. Confira o e-mail.');
-    }, function () { acct.busy = false; accountStatus('Falha ao enviar o código.'); });
-  }
-  function cloudVerifyCode() {
-    const code = (document.getElementById('rw-code') || {}).value;
-    if (!sb || !code) { accountStatus('Digite o código.'); return; }
-    accountStatus('Confirmando…');
-    sb.auth.verifyOtp({ email: acct.email, token: String(code).trim(), type: 'email' }).then(function (res) {
-      if (res && res.error) { accountStatus('Código inválido: ' + res.error.message); return; }
-      const u = res.data.session.user;
-      cloudUser = { id: u.id, email: u.email };
-      acct.codeSent = false;
-      accountStatus('Sincronizando…');
-      onSignedIn().then(function () { updateAccountUI(); accountStatus('Conectado e sincronizado ✓'); });
-    }, function () { accountStatus('Falha ao confirmar o código.'); });
+      accountStatus('Enviamos um link de acesso para ' + email + '. Abra o e-mail e toque em "Entrar" — você volta pro jogo já logado.');
+    }, function () { accountStatus('Falha ao enviar o link.'); });
   }
   function cloudSignOut() {
     if (!sb) return;
-    sb.auth.signOut().then(function () { cloudUser = null; acct.codeSent = false; updateAccountUI(); });
+    sb.auth.signOut().then(function () { cloudUser = null; updateAccountUI(); });
   }
 
   function updateAccountUI() {
@@ -790,13 +775,10 @@
     box.innerHTML =
       '<p class="rw-acct-sub">Entre para <b>salvar e sincronizar</b> sua ofensiva, medalhas e progresso em outros aparelhos.</p>' +
       '<input id="rw-email" class="name-input" type="email" inputmode="email" placeholder="seu@email.com" />' +
-      '<div id="rw-code-row" class="rw-code-row" ' + (acct.codeSent ? '' : 'hidden') + '>' +
-      '<input id="rw-code" class="name-input" inputmode="numeric" placeholder="Código de 6 dígitos" /></div>' +
-      '<button id="rw-auth-btn" class="btn-primary">' + (acct.codeSent ? 'Confirmar código' : 'Enviar código') + '</button>' +
+      '<button id="rw-auth-btn" class="btn-primary">Enviar link de acesso</button>' +
       '<p id="rw-auth-status" class="rw-acct-sub"></p>';
     const em = document.getElementById('rw-email'); if (em) { em.value = acct.email; em.addEventListener('input', function () { acct.email = em.value; }); }
-    const btn = document.getElementById('rw-auth-btn');
-    if (btn) btn.addEventListener('click', function () { acct.codeSent ? cloudVerifyCode() : cloudSendCode(); });
+    const btn = document.getElementById('rw-auth-btn'); if (btn) btn.addEventListener('click', cloudSendLink);
   }
 
   function buildMenu() {
