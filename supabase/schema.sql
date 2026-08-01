@@ -21,3 +21,10 @@ create policy "own insert" on public.profiles
   for insert with check (auth.uid() = id);
 create policy "own update" on public.profiles
   for update using (auth.uid() = id) with check (auth.uid() = id);
+
+-- IMPORTANTE: as políticas RLS acima dizem QUAIS linhas cada um vê, mas o papel
+-- de usuário logado também precisa de PERMISSÃO na tabela (senão dá
+-- "permission denied for table profiles"). Criar tabela por SQL não concede isso
+-- automaticamente — por isso os GRANTs abaixo:
+grant usage on schema public to authenticated;
+grant select, insert, update on public.profiles to authenticated;
