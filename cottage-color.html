@@ -3826,29 +3826,47 @@ if (typeof window !== 'undefined') window.LEVELS = LEVELS;
   }
 
   // ---- auth actions + sync ------------------------------------------------
+  let lastSyncMsg = '';
+  function setSyncMsg(m) {
+    lastSyncMsg = m || '';
+    const s = document.getElementById('rw-sync-status');
+    if (s) s.textContent = lastSyncMsg;
+  }
+
   function onSignedIn() {
     if (!sb || !cloudUser) return Promise.resolve();
-    return sb.from('profiles').select('data').eq('id', cloudUser.id).single().then(function (res) {
+    setSyncMsg('Sincronizando…');
+    // maybeSingle: returns null (no error) when the row doesn't exist yet.
+    return sb.from('profiles').select('data').eq('id', cloudUser.id).maybeSingle().then(function (res) {
+      if (res && res.error) { setSyncMsg('⚠️ Erro ao ler da nuvem: ' + res.error.message); }
       const cloud = (res && res.data && res.data.data) ? res.data.data : {};
       const merged = mergeSnapshots(localSnapshot(), cloud);
       applySnapshot(merged);
       return cloudPush(merged);
-    }, function () { return cloudPush(localSnapshot()); }).then(function () {
+    }, function (e) {
+      setSyncMsg('⚠️ Falha de rede ao ler da nuvem.');
+      return cloudPush(localSnapshot());
+    }).then(function () {
       refreshGGBar();
       if (el.rewards && !el.rewards.classList.contains('hidden')) renderRewards();
       if (el.menu && !el.menu.classList.contains('hidden')) buildMenu();
     });
   }
   function cloudPush(snap) {
-    if (!sb || !cloudUser) return Promise.resolve();
+    if (!sb || !cloudUser) return Promise.resolve({ ok: false });
     return sb.from('profiles').upsert({ id: cloudUser.id, data: snap || localSnapshot(), updated_at: new Date().toISOString() })
-      .then(function () {}, function () {});
+      .then(function (r) {
+        if (r && r.error) { setSyncMsg('⚠️ Erro ao salvar na nuvem: ' + r.error.message); return { ok: false, error: r.error }; }
+        setSyncMsg('Sincronizado ✓ · ' + new Date().toLocaleTimeString());
+        return { ok: true };
+      }, function (e) { setSyncMsg('⚠️ Falha de rede ao salvar.'); return { ok: false, error: e }; });
   }
   function cloudPushSoon() {
     if (!sb || !cloudUser) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(function () { cloudPush(localSnapshot()); }, 2500);
   }
+  function cloudSyncNow() { if (cloudUser) onSignedIn(); }
 
   const acct = { email: '' };
   function accountStatus(msg) { const s = document.getElementById('rw-auth-status'); if (s) s.textContent = msg || ''; }
@@ -3874,8 +3892,10 @@ if (typeof window !== 'undefined') window.LEVELS = LEVELS;
     const box = el.rwAccount;
     if (cloudUser) {
       box.innerHTML = '<p class="rw-acct-line">Conectado como <b>' + (cloudUser.email || 'você') + '</b></p>' +
-        '<p class="rw-acct-sub">Seu progresso sincroniza automaticamente. ✓</p>' +
-        '<button id="rw-signout" class="btn-ghost">Sair</button>';
+        '<p id="rw-sync-status" class="rw-acct-sub">' + (lastSyncMsg || 'Seu progresso sincroniza automaticamente.') + '</p>' +
+        '<button id="rw-sync" class="btn-ghost">Sincronizar agora</button>' +
+        '<button id="rw-signout" class="btn-text">Sair</button>';
+      const sy = document.getElementById('rw-sync'); if (sy) sy.addEventListener('click', cloudSyncNow);
       const so = document.getElementById('rw-signout'); if (so) so.addEventListener('click', cloudSignOut);
       return;
     }
