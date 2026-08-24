@@ -306,6 +306,22 @@
 
   // Pick today's featured image (deterministic by date) via the web-search proxy;
   // fall back to a rotating acervo board when offline / not configured.
+  // Track which images have already been featured (by id/url) so the "image of
+  // the day" never repeats. Synced to the cloud, so it also doesn't repeat
+  // across devices once you're logged in.
+  const DAILY_SEEN_KEY = STORAGE_PREFIX + 'dailySeen';
+  function hitKey(h) { return String((h && h.id != null) ? h.id : (h && h.full) || ''); }
+  function loadSeen() { try { return JSON.parse(localStorage.getItem(DAILY_SEEN_KEY)) || []; } catch (_) { return []; } }
+  function markSeen(key) {
+    if (!key) return;
+    const seen = loadSeen();
+    if (seen.indexOf(key) < 0) {
+      seen.push(key);
+      try { localStorage.setItem(DAILY_SEEN_KEY, JSON.stringify(seen)); } catch (_) {}
+      cloudPushSoon();
+    }
+  }
+
   function initDaily() {
     if (dailyUsedToday()) return Promise.resolve();   // already played today
     const today = todayStr();
@@ -322,15 +338,29 @@
       .then(function (data) {
         const hits = (data.hits || []).filter(function (h) { return h.thumb && h.full; });
         if (!hits.length) { dailyFallback(theme); return; }
-        const hit = hits[dayNum() % hits.length];   // same image for everyone, that day
+        const seen = loadSeen();
+        let hit = null;
+        for (let i = 0; i < hits.length; i++) {           // first image never featured before
+          if (seen.indexOf(hitKey(hits[i])) < 0) { hit = hits[i]; break; }
+        }
+        if (!hit) { dailyFallback(theme); return; }        // theme exhausted -> acervo
         dailyFeature = { kind: 'web', theme: theme, hit: hit };
+        markSeen(hitKey(hit));
         try { localStorage.setItem(DAILY_KEY, JSON.stringify({ date: today, theme: theme, hit: hit })); } catch (_) {}
       })
       .catch(function () { dailyFallback(theme); });
   }
   function dailyFallback(theme) {
     const cur = window.CURATED || [];
-    if (cur.length) dailyFeature = { kind: 'acervo', theme: theme, board: cur[dayNum() % cur.length] };
+    if (!cur.length) return;
+    const seen = loadSeen();
+    let board = null;
+    for (let i = 0; i < cur.length; i++) {                 // an acervo board not featured yet
+      if (seen.indexOf('acervo:' + cur[i].id) < 0) { board = cur[i]; break; }
+    }
+    if (!board) board = cur[dayNum() % cur.length];        // all seen -> rotate (last resort)
+    dailyFeature = { kind: 'acervo', theme: theme, board: board };
+    markSeen('acervo:' + board.id);
   }
 
   // Once the player has actually played today's image of the day, stop offering
@@ -656,7 +686,7 @@
   }
 
   // ---- snapshots + merge --------------------------------------------------
-  const CLOUD_RESERVED = { custom:1, menu:1, last:1, daily:1, weekly:1, gg:1, tut:1, dailyUsed:1, proxy:1, supaUrl:1, supaKey:1 };
+  const CLOUD_RESERVED = { custom:1, menu:1, last:1, daily:1, weekly:1, gg:1, tut:1, dailyUsed:1, proxy:1, supaUrl:1, supaKey:1, dailySeen:1 };
   function progressSnapshot() {
     const out = {};
     try {
@@ -670,12 +700,13 @@
     } catch (_) {}
     return out;
   }
-  function localSnapshot() { return { gg: gg, progress: progressSnapshot() }; }
+  function localSnapshot() { return { gg: gg, progress: progressSnapshot(), seen: loadSeen() }; }
   function applySnapshot(snap) {
     if (snap.gg) { gg = normalizeGG(snap.gg); try { localStorage.setItem(GG_KEY, JSON.stringify(gg)); } catch (_) {} }
     if (snap.progress) for (const id in snap.progress) {
       try { localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(snap.progress[id])); } catch (_) {}
     }
+    if (Array.isArray(snap.seen)) { try { localStorage.setItem(DAILY_SEEN_KEY, JSON.stringify(snap.seen)); } catch (_) {} }
   }
 
   // Order-independent merge: max for cumulative counters, union for sets. Keeps
@@ -713,9 +744,19 @@
     }
     return out;
   }
+  function mergeSeen(a, b) {
+    const s = {};
+    (a || []).forEach(function (x) { s[x] = 1; });
+    (b || []).forEach(function (x) { s[x] = 1; });
+    return Object.keys(s);
+  }
   function mergeSnapshots(a, b) {
     a = a || {}; b = b || {};
-    return { gg: mergeGGpair(a.gg || {}, b.gg || {}), progress: mergeProgressPair(a.progress || {}, b.progress || {}) };
+    return {
+      gg: mergeGGpair(a.gg || {}, b.gg || {}),
+      progress: mergeProgressPair(a.progress || {}, b.progress || {}),
+      seen: mergeSeen(a.seen, b.seen)
+    };
   }
 
   // ---- auth actions + sync ------------------------------------------------
